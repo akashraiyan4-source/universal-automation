@@ -1,0 +1,384 @@
+{
+  "project": "Ultimate Universal Enterprise Backend",
+  "totalEndpoints": 54,
+  "manifestos": [
+    {
+      "id": 1,
+      "apiName": "Gemini AI Concierge & Chat Engine",
+      "route": "/api/ai-chat",
+      "method": "POST",
+      "description": "Universal AI chat concierge powered by Google Gemini 1.5 Flash with multi-key fallback rotation, strict input validation, length limits, and human-like conversion specialist persona."
+    },
+    {
+      "id": 2,
+      "apiName": "Universal Analytics Engine",
+      "route": "/api/analytics",
+      "method": "GET",
+      "description": "Retrieves real-time dashboard performance metrics, lead captures, VIP high-intent stats, and estimated revenue dynamically filtered by business niche."
+    },
+    {
+      "id": 3,
+      "apiName": "Ultimate Universal Quote Engine",
+      "route": "/api/quote-calculator",
+      "method": "POST",
+      "description": "Calculates dynamic enterprise cost estimations, pricing rates, and unique reference IDs flexibly based on niche, square footage/unit size, material types, and damage severity."
+    },
+    {
+      "id": 4,
+      "apiName": "Universal Booking Engine",
+      "route": "/api/booking",
+      "method": "POST",
+      "description": "Creates and records a universal appointment with strict validation, status tracking, and niche adaptability."
+    },
+    {
+      "id": 5,
+      "apiName": "Universal Cancellation Engine",
+      "route": "/api/appointment-cancel",
+      "method": "POST",
+      "description": "Cancels an existing appointment securely using phone or appointmentId with optional reason tracking."
+    },
+    {
+      "id": 6,
+      "apiName": "Universal Appointment Check",
+      "route": "/api/appointment-check",
+      "method": "GET",
+      "description": "Verifies and retrieves active (non-cancelled) appointment details dynamically using a phone query parameter."
+    },
+    {
+      "id": 7,
+      "apiName": "Universal Confirmation Engine",
+      "route": "/api/appointment-confirm",
+      "method": "POST",
+      "description": "Confirms an existing appointment securely using appointmentId or phone number."
+    },
+    {
+      "id": 8,
+      "apiName": "Universal Creation/Reservation Engine",
+      "route": "/api/appointment-create",
+      "method": "POST",
+      "description": "Reserves and creates a new appointment slot with flexible fallback keys for client name, date, and niche support."
+    },
+    {
+      "id": 9,
+      "apiName": "Universal Slot Lock Engine",
+      "route": "/api/slot-lock",
+      "method": "POST",
+      "description": "Temporarily locks and reserves an appointment time slot for a specified duration (default: 10 minutes) to prevent double-booking conflicts."
+    },
+    {
+      "id": 10,
+      "apiName": "Ultimate Universal Reschedule Engine",
+      "route": "/api/appointment-reschedule",
+      "method": "POST",
+      "description": "Securely reschedules an existing appointment to a new date, maintaining tracking history of previous dates, status changes, and niche adaptability."
+    },
+    {
+      "id": 11,
+      "apiName": "Ultimate Universal Broadcast Engine",
+      "route": "/api/broadcast",
+      "method": "POST",
+      "description": "Dispatches omnichannel marketing or notification campaigns globally with targeted audience segmentation and persistent in-memory database storage."
+    },
+    {
+      "id": 12,
+      "apiName": "Ultimate Universal Consultation Pre-Screening Engine",
+      "route": "/api/consultation",
+      "method": "POST",
+      "description": "Performs an automated pre-screening evaluation for potential clients based on procedure interest and custom niche parameters, returning a suitability score and recommended next steps."
+    },
+    {
+      "id": 13,
+      "apiName": "Ultimate Universal Cost Estimator",
+      "route": "/api/cost-estimator",
+      "method": "POST",
+      "description": "Calculates dynamic price estimates and service descriptions across multi-niche industries (Dental, Solar, Roofing, and general services) with in-memory persistence and enterprise validation."
+    },
+    {
+      "id": 14,
+      "apiName": "Ultimate Universal Fly-In Concierge Engine",
+      "route": "/api/fly-in-concierge",
+      "method": "POST",
+      "description": "Manages VIP logistics, travel arrangements, airport arrivals, and accommodation coordination for high-ticket clients across multi-niche sectors."
+    },
+    {
+      "id": 15,
+      "apiName": "Ultimate Universal Follow-Up Engine",
+      "route": "/api/follow-up",
+      "method": "POST",
+      "description": "Automates multi-step nurture and follow-up sequences via phone or email for prospective leads across any commercial business niche with persistent in-memory storage."
+    },
+    {
+      "id": 16,
+      "apiName": "Ultimate Universal Calendar Sync Engine",
+      "route": "/api/google-calendar-sync",
+      "method": "POST",
+      "description": "Verifies and locks appointments universally with fallback parameters across multiple business niches, generating a secure slot token and scheduling confirmation."
+    },
+    {
+      "id": 17,
+      "apiName": "Ultimate Universal Google Maps Geocoding Engine",
+      "route": "/api/google-maps-geocoding",
+      "method": "POST",
+      "description": "Resolves property addresses, locations, and zip codes into precise geographic coordinates, elevations, and location metadata across multi-niche sectors like solar, roofing, and real estate."
+    },
+    {
+      "id": 18,
+      "apiName": "Ultimate Universal Insurance & Coverage Qualification Engine",
+      "route": "/api/insurance",
+      "method": "POST",
+      "description": "Verifies and qualifies insurance policies, provider coverage, and commercial protection plans across multi-niche industries with persistent in-memory storage."
+    },
+    {
+      "id": 19,
+      "apiName": "Ultimate Universal Intake Engine",
+      "route": "/api/intake-db",
+      "method": "POST",
+      "description": "Handles secure universal lead and patient intake across multi-niche sectors with flexible fallback parameters, encryption status validation, and robust error handling."
+    },
+    {
+      "id": 20,
+      "apiName": "Ultimate Universal Lead Notification Webhook Engine",
+      "route": "/api/lead-notification-webhook",
+      "method": "POST",
+      "description": "Instantly dispatches lead notifications and alerts to enterprise stakeholders across multi-niche sectors via SMS gateway, encrypted webhooks, and dashboard pushes."
+    },
+    {
+      "id": 21,
+      "apiName": "Ultimate Universal Lead Scoring Engine",
+      "route": "/api/lead-scoring",
+      "method": "POST",
+      "description": "Automatically scores, segments, and prioritizes prospective B2B leads across multi-niche industries based on requested high-value services and budget tiers."
+    },
+    {
+      "id": 22,
+      "apiName": "Ultimate Universal Long-Term Nurture Engine",
+      "route": "/api/long-term-nurture",
+      "method": "POST",
+      "description": "Enroll prospective leads into automated, score-based and multi-niche long-term drip marketing email campaigns to maximize conversion over time."
+    },
+    {
+      "id": 23,
+      "apiName": "Ultimate Universal Loyalty & Reward Engine",
+      "route": "/api/loyalty",
+      "method": "POST",
+      "description": "Calculates and awards loyalty points, manages VIP reward tiers, and tracks multi-niche client interactions with persistent in-memory storage."
+    },
+    {
+      "id": 24,
+      "apiName": "Ultimate Universal Missed-Call & AI Voice Call-Back Engine",
+      "route": "/api/missed-call-webhook",
+      "method": "POST",
+      "description": "Handles missed phone calls via Twilio TwiXML, automatically dispatches instant niche-tailored text-back SMS messages, and triggers an AI voice agent call-back via Retell AI."
+    },
+    {
+      "id": 25,
+      "apiName": "Ultimate Universal Multi-Language Support Engine",
+      "route": "/api/multilanguage",
+      "method": "POST",
+      "description": "Provides localized, multi-language conversational support and dynamic response synthesis across multiple business niches with in-memory logging."
+    },
+    {
+      "id": 26,
+      "apiName": "Ultimate Universal NDA & Confidentiality Protocol Engine",
+      "route": "/api/nda-protocol",
+      "method": "POST",
+      "description": "Initiates strict non-disclosure agreements (NDAs) and secure confidentiality workflows for high-net-worth clients and enterprise projects across multi-niche sectors."
+    },
+    {
+      "id": 27,
+      "apiName": "Ultimate Universal No-Show Recovery Engine",
+      "route": "/api/no-show-recovery",
+      "method": "POST",
+      "description": "Automates missed appointment recovery workflows, triggering tailored SMS re-engagement sequences and tracking missed visits across multi-niche sectors."
+    },
+    {
+      "id": 28,
+      "apiName": "Ultimate Universal Onboarding & Data Collection Engine",
+      "route": "/api/onboarding",
+      "method": "POST",
+      "description": "Handles dynamic, schema-flexible onboarding and client intake data submission across multi-niche sectors with persistent in-memory storage and validation."
+    },
+    {
+      "id": 29,
+      "apiName": "Ultimate Universal Payment & Invoice Engine",
+      "route": "/api/invoice",
+      "method": "POST",
+      "description": "Generates custom digital payment invoices, secure tracking identifiers, and dynamic payment gateway links across multi-niche enterprise services."
+    },
+    {
+      "id": 30,
+      "apiName": "Ultimate Universal Post-Treatment & Service Recovery Engine",
+      "route": "/api/recovery",
+      "method": "POST",
+      "description": "Tracks post-service satisfaction, pain or issue levels, and dynamically synthesizes niche-specific AI advice and automated alerts across multi-niche enterprise operations."
+    },
+    {
+      "id": 31,
+      "apiName": "Ultimate Universal Pre-Appointment Preparation & Guidelines Engine",
+      "route": "/api/prep-reminder",
+      "method": "POST",
+      "description": "Automatically generates and dispatches niche-specific pre-appointment preparation guidelines, instructions, and reminders across multi-niche enterprise services."
+    },
+    {
+      "id": 32,
+      "apiName": "Ultimate Universal Instant Property Valuation & Cash Offer Engine",
+      "route": "/api/property-valuation",
+      "method": "POST",
+      "description": "Calculates instant market value estimations and cash offers for real estate properties based on square footage, bedrooms, and structural condition."
+    },
+    {
+      "id": 33,
+      "apiName": "Ultimate Universal Mortgage & Loan Calculator Engine",
+      "route": "/api/mortgage-calculator",
+      "method": "POST",
+      "description": "Calculates monthly mortgage payments, down payment amounts, loan balances, and financing structures based on property price, interest rates, and loan terms."
+    },
+    {
+      "id": 34,
+      "apiName": "Ultimate Universal Client Recall & Re-Engagement Engine",
+      "route": "/api/recall",
+      "method": "POST",
+      "description": "Manages automated, multi-niche client recall schedules, periodic check-ins, and long-term re-engagement tracking with schema-flexible payloads."
+    },
+    {
+      "id": 35,
+      "apiName": "Ultimate Universal Client Referral & Reward Program Engine",
+      "route": "/api/referral",
+      "method": "POST",
+      "description": "Generates custom multi-niche referral codes, unique shareable tracking links, and referral rewards management for high-ticket B2B sectors."
+    },
+    {
+      "id": 36,
+      "apiName": "Ultimate Universal Google Maps Reputation & 5-Star Review Engine",
+      "route": "/api/google-reviews",
+      "method": "GET",
+      "description": "Fetches live Google Places ratings, total review counts, and customer feedback for high-ticket B2B landing pages with a robust fallback mechanism."
+    },
+    {
+      "id": 37,
+      "apiName": "Ultimate Universal Storm & Hail History Analytics Engine",
+      "route": "/api/storm-history",
+      "method": "POST",
+      "description": "Analyzes historical weather patterns, hail sizes, wind speeds, and storm dates based on zipcodes or geographic coordinates for roofing campaigns."
+    },
+    {
+      "id": 38,
+      "apiName": "Ultimate Universal AI Sentiment Analysis & Reputation Shield Engine",
+      "route": "/api/sentiment-analyzer",
+      "method": "POST",
+      "description": "Analyzes customer feedback, reviews, and social mentions across multi-niche sectors to detect sentiment polarity and trigger automated emergency alerts."
+    },
+    {
+      "id": 39,
+      "apiName": "Ultimate Universal Smart FAQ & Conversational Knowledge Bot Engine",
+      "route": "/api/faq-bot",
+      "method": "POST",
+      "description": "Handles intelligent, multi-niche customer FAQ inquiries, providing context-aware answers regarding location, pricing, warranties, and business hours."
+    },
+    {
+      "id": 40,
+      "apiName": "Ultimate Universal Solar & Battery Storage Proposal Engine",
+      "route": "/api/solar-proposal",
+      "method": "POST",
+      "description": "Calculates custom solar system sizing in kilowatts, gross and net costs after federal tax credits, and battery storage estimates."
+    },
+    {
+      "id": 41,
+      "apiName": "Ultimate Universal Advanced Solar System & Financial ROI Proposal Engine",
+      "route": "/api/solar-proposal-advanced",
+      "method": "POST",
+      "description": "Calculates comprehensive custom solar proposals including system sizing, battery options, federal tax credits (30%), and long-term financial ROI."
+    },
+    {
+      "id": 42,
+      "apiName": "Ultimate Universal Staff & Emergency SMS Alert Engine",
+      "route": "/api/staff-alert",
+      "method": "POST",
+      "description": "Dispatches real-time SMS alerts and emergency notifications to staff, doctors, or project managers via Twilio with built-in rate-limiting and structured tracing."
+    },
+    {
+      "id": 43,
+      "apiName": "Ultimate Universal Staff & Emergency Notification Gateway",
+      "route": "/api/staff-alert",
+      "method": "POST",
+      "description": "Dispatches real-time SMS notifications and emergency alerts to staff, project managers, or doctors across multi-niche business operations via Twilio."
+    },
+    {
+      "id": 44,
+      "apiName": "Ultimate Universal Resilient Circuit Breaker Utility Engine",
+      "route": "/utils/circuit-breaker.ts",
+      "method": "UTILITY CLASS",
+      "description": "Implements the Circuit Breaker pattern to prevent cascading failures during external API calls like Twilio SMS or AI webhook dispatching."
+    },
+    {
+      "id": 45,
+      "apiName": "Ultimate Universal IP Rate Limiter Utility Engine",
+      "route": "/utils/rate-limit.ts",
+      "method": "UTILITY FUNCTION",
+      "description": "Provides in-memory IP-based rate limiting per minute window to secure API routes from abuse, brute-force requests, or DDoS attacks."
+    },
+    {
+      "id": 46,
+      "apiName": "Ultimate Universal Advanced Vector RAG & Knowledge Retrieval Engine",
+      "route": "/api/vector-rag",
+      "method": "POST",
+      "description": "Performs context-aware, multi-niche vector RAG knowledge retrieval and protocol synthesis matching user inquiries against specialized knowledgebases."
+    },
+    {
+      "id": 47,
+      "apiName": "Ultimate Universal AI Visual Simulation & Before-After Engine",
+      "route": "/api/visual-simulation",
+      "method": "POST",
+      "description": "Generates predictive AI-powered visual previews, before-and-after aesthetic simulations, and treatment outcome renders."
+    },
+    {
+      "id": 48,
+      "apiName": "Ultimate Universal Twilio Voice AI Concierge & Bridge Engine",
+      "route": "/api/voice-agent-bridge/incoming-call",
+      "method": "POST",
+      "description": "Handles live inbound voice calls via Twilio TwiML, greets callers with multi-niche dynamic AI voice configurations (Amazon Polly Neural)."
+    },
+    {
+      "id": 49,
+      "apiName": "Ultimate Universal Gemini Real-Time Voice Streaming & Session Engine",
+      "route": "/api/voice-session",
+      "method": "POST",
+      "description": "Initializes live multimodal voice streaming sessions, managing Gemini AI voice brain configurations and active connection tracking."
+    },
+    {
+      "id": 50,
+      "apiName": "Ultimate Universal AI Missed Call Auto-Callback & Voice Bridge Engine",
+      "route": "/api/missed-call-callback",
+      "method": "POST",
+      "description": "Generates AI-powered natural greetings using Gemini and automatically triggers instant outbound phone callbacks via Twilio voice integration."
+    },
+    {
+      "id": 51,
+      "apiName": "Ultimate Universal Twilio Speech Recognition & Emergency Call Routing Engine",
+      "route": "/api/voice-agent-bridge/process-speech",
+      "method": "POST",
+      "description": "Processes inbound caller speech, detects multi-niche emergency keywords, and seamlessly hot-transfers live calls to on-call specialists."
+    },
+    {
+      "id": 52,
+      "apiName": "Ultimate Universal Twilio Voice Transfer Fallback & Graceful Hangup Engine",
+      "route": "/api/voice-agent-bridge/transfer-fallback",
+      "method": "POST",
+      "description": "Handles unanswered or busy emergency call transfers in Twilio, delivering professional multi-niche fallback voice messages via Amazon Polly Neural."
+    },
+    {
+      "id": 53,
+      "apiName": "Ultimate Universal Gemini Conversational AI Voice Chat Engine",
+      "route": "/api/voice-chat",
+      "method": "POST",
+      "description": "Powers real-time conversational voice and chat interactions using Google Gemini, generating concise, human-like responses."
+    },
+    {
+      "id": 54,
+      "apiName": "Ultimate Universal Advanced Conversational AI Voice & Chat Assistant Engine",
+      "route": "/api/voice-chat-advanced",
+      "method": "POST",
+      "description": "Powers context-aware, multi-niche conversational voice and text chat responses leveraging Google Gemini with specialized system prompts."
+    }
+  ]
+}

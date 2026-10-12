@@ -1,0 +1,347 @@
+{
+  "version": 3,
+  "pages404": true,
+  "caseSensitive": false,
+  "basePath": "",
+  "redirects": [
+    {
+      "source": "/:path+/",
+      "destination": "/:path+",
+      "internal": true,
+      "statusCode": 308,
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$"
+    }
+  ],
+  "headers": [],
+  "rewrites": {
+    "beforeFiles": [],
+    "afterFiles": [],
+    "fallback": []
+  },
+  "dynamicRoutes": [],
+  "staticRoutes": [
+    {
+      "page": "/ai/chat",
+      "regex": "^/ai/chat(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ai/chat(?:/)?$"
+    },
+    {
+      "page": "/analytics/dashboard-stats",
+      "regex": "^/analytics/dashboard\\-stats(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/analytics/dashboard\\-stats(?:/)?$"
+    },
+    {
+      "page": "/automated-quote-calculator",
+      "regex": "^/automated\\-quote\\-calculator(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/automated\\-quote\\-calculator(?:/)?$"
+    },
+    {
+      "page": "/booking/book",
+      "regex": "^/booking/book(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/booking/book(?:/)?$"
+    },
+    {
+      "page": "/booking/cancel",
+      "regex": "^/booking/cancel(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/booking/cancel(?:/)?$"
+    },
+    {
+      "page": "/booking/check",
+      "regex": "^/booking/check(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/booking/check(?:/)?$"
+    },
+    {
+      "page": "/booking/confirm",
+      "regex": "^/booking/confirm(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/booking/confirm(?:/)?$"
+    },
+    {
+      "page": "/booking/create",
+      "regex": "^/booking/create(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/booking/create(?:/)?$"
+    },
+    {
+      "page": "/booking/lock-slot",
+      "regex": "^/booking/lock\\-slot(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/booking/lock\\-slot(?:/)?$"
+    },
+    {
+      "page": "/booking/reschedule",
+      "regex": "^/booking/reschedule(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/booking/reschedule(?:/)?$"
+    },
+    {
+      "page": "/broadcast/send-campaign",
+      "regex": "^/broadcast/send\\-campaign(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/broadcast/send\\-campaign(?:/)?$"
+    },
+    {
+      "page": "/consultation",
+      "regex": "^/consultation(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/consultation(?:/)?$"
+    },
+    {
+      "page": "/cost-estimator/calculate-estimate",
+      "regex": "^/cost\\-estimator/calculate\\-estimate(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/cost\\-estimator/calculate\\-estimate(?:/)?$"
+    },
+    {
+      "page": "/fly-in-concierge",
+      "regex": "^/fly\\-in\\-concierge(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/fly\\-in\\-concierge(?:/)?$"
+    },
+    {
+      "page": "/follow-up/trigger-sequence",
+      "regex": "^/follow\\-up/trigger\\-sequence(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/follow\\-up/trigger\\-sequence(?:/)?$"
+    },
+    {
+      "page": "/gemini-concierge/webhook",
+      "regex": "^/gemini\\-concierge/webhook(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/gemini\\-concierge/webhook(?:/)?$"
+    },
+    {
+      "page": "/google-calendar-sync",
+      "regex": "^/google\\-calendar\\-sync(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/google\\-calendar\\-sync(?:/)?$"
+    },
+    {
+      "page": "/google-maps-geocoding",
+      "regex": "^/google\\-maps\\-geocoding(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/google\\-maps\\-geocoding(?:/)?$"
+    },
+    {
+      "page": "/insurance/check-qualification",
+      "regex": "^/insurance/check\\-qualification(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/insurance/check\\-qualification(?:/)?$"
+    },
+    {
+      "page": "/intake-db",
+      "regex": "^/intake\\-db(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/intake\\-db(?:/)?$"
+    },
+    {
+      "page": "/lead-notification-webhook",
+      "regex": "^/lead\\-notification\\-webhook(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/lead\\-notification\\-webhook(?:/)?$"
+    },
+    {
+      "page": "/lead-scoring/score-lead",
+      "regex": "^/lead\\-scoring/score\\-lead(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/lead\\-scoring/score\\-lead(?:/)?$"
+    },
+    {
+      "page": "/long-term-nurture",
+      "regex": "^/long\\-term\\-nurture(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/long\\-term\\-nurture(?:/)?$"
+    },
+    {
+      "page": "/loyalty/add-points",
+      "regex": "^/loyalty/add\\-points(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/loyalty/add\\-points(?:/)?$"
+    },
+    {
+      "page": "/missed-call/missed-call",
+      "regex": "^/missed\\-call/missed\\-call(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/missed\\-call/missed\\-call(?:/)?$"
+    },
+    {
+      "page": "/multilanguage-support",
+      "regex": "^/multilanguage\\-support(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/multilanguage\\-support(?:/)?$"
+    },
+    {
+      "page": "/nda-protocol",
+      "regex": "^/nda\\-protocol(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/nda\\-protocol(?:/)?$"
+    },
+    {
+      "page": "/no-show-recovery/recover",
+      "regex": "^/no\\-show\\-recovery/recover(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/no\\-show\\-recovery/recover(?:/)?$"
+    },
+    {
+      "page": "/onboarding/submit-form",
+      "regex": "^/onboarding/submit\\-form(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/onboarding/submit\\-form(?:/)?$"
+    },
+    {
+      "page": "/payment-invoice",
+      "regex": "^/payment\\-invoice(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/payment\\-invoice(?:/)?$"
+    },
+    {
+      "page": "/post-treatment/track-recovery",
+      "regex": "^/post\\-treatment/track\\-recovery(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/post\\-treatment/track\\-recovery(?:/)?$"
+    },
+    {
+      "page": "/prep-reminder/send-prep",
+      "regex": "^/prep\\-reminder/send\\-prep(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/prep\\-reminder/send\\-prep(?:/)?$"
+    },
+    {
+      "page": "/real-estate-Instant Property Valuation",
+      "regex": "^/real\\-estate\\-Instant Property Valuation(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/real\\-estate\\-Instant Property Valuation(?:/)?$"
+    },
+    {
+      "page": "/real-estate-mortgage-roi-calculator",
+      "regex": "^/real\\-estate\\-mortgage\\-roi\\-calculator(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/real\\-estate\\-mortgage\\-roi\\-calculator(?:/)?$"
+    },
+    {
+      "page": "/recall-engine/schedule",
+      "regex": "^/recall\\-engine/schedule(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/recall\\-engine/schedule(?:/)?$"
+    },
+    {
+      "page": "/referral/generate-referral",
+      "regex": "^/referral/generate\\-referral(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/referral/generate\\-referral(?:/)?$"
+    },
+    {
+      "page": "/reputation/send-review-request",
+      "regex": "^/reputation/send\\-review\\-request(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/reputation/send\\-review\\-request(?:/)?$"
+    },
+    {
+      "page": "/roofing-weather-storm-history",
+      "regex": "^/roofing\\-weather\\-storm\\-history(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/roofing\\-weather\\-storm\\-history(?:/)?$"
+    },
+    {
+      "page": "/sentiment-analyzer",
+      "regex": "^/sentiment\\-analyzer(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/sentiment\\-analyzer(?:/)?$"
+    },
+    {
+      "page": "/smart-faq/ask-faq",
+      "regex": "^/smart\\-faq/ask\\-faq(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/smart\\-faq/ask\\-faq(?:/)?$"
+    },
+    {
+      "page": "/solar-electricity-bill-roi",
+      "regex": "^/solar\\-electricity\\-bill\\-roi(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/solar\\-electricity\\-bill\\-roi(?:/)?$"
+    },
+    {
+      "page": "/solar-panel-custom-proposal",
+      "regex": "^/solar\\-panel\\-custom\\-proposal(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/solar\\-panel\\-custom\\-proposal(?:/)?$"
+    },
+    {
+      "page": "/vector-knowledge/query-rag",
+      "regex": "^/vector\\-knowledge/query\\-rag(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/vector\\-knowledge/query\\-rag(?:/)?$"
+    },
+    {
+      "page": "/Visual Simulator/simulate-smile",
+      "regex": "^/Visual Simulator/simulate\\-smile(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/Visual Simulator/simulate\\-smile(?:/)?$"
+    },
+    {
+      "page": "/voice-agent-bridge/incoming-call",
+      "regex": "^/voice\\-agent\\-bridge/incoming\\-call(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/voice\\-agent\\-bridge/incoming\\-call(?:/)?$"
+    },
+    {
+      "page": "/voice-agent-bridge/initialize-voice-session",
+      "regex": "^/voice\\-agent\\-bridge/initialize\\-voice\\-session(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/voice\\-agent\\-bridge/initialize\\-voice\\-session(?:/)?$"
+    },
+    {
+      "page": "/voice-agent-bridge/missed-call-callback",
+      "regex": "^/voice\\-agent\\-bridge/missed\\-call\\-callback(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/voice\\-agent\\-bridge/missed\\-call\\-callback(?:/)?$"
+    },
+    {
+      "page": "/voice-agent-bridge/process-speech",
+      "regex": "^/voice\\-agent\\-bridge/process\\-speech(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/voice\\-agent\\-bridge/process\\-speech(?:/)?$"
+    },
+    {
+      "page": "/voice-agent-bridge/transfer-fallback",
+      "regex": "^/voice\\-agent\\-bridge/transfer\\-fallback(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/voice\\-agent\\-bridge/transfer\\-fallback(?:/)?$"
+    },
+    {
+      "page": "/voice-chat",
+      "regex": "^/voice\\-chat(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/voice\\-chat(?:/)?$"
+    },
+    {
+      "page": "/whatsapp-integration/send-whatsapp",
+      "regex": "^/whatsapp\\-integration/send\\-whatsapp(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/whatsapp\\-integration/send\\-whatsapp(?:/)?$"
+    }
+  ],
+  "dataRoutes": [],
+  "rsc": {
+    "header": "rsc",
+    "varyHeader": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+    "prefetchHeader": "next-router-prefetch",
+    "didPostponeHeader": "x-nextjs-postponed",
+    "contentTypeHeader": "text/x-component",
+    "suffix": ".rsc",
+    "prefetchSuffix": ".prefetch.rsc",
+    "prefetchSegmentHeader": "next-router-segment-prefetch",
+    "prefetchSegmentSuffix": ".segment.rsc",
+    "prefetchSegmentDirSuffix": ".segments"
+  },
+  "rewriteHeaders": {
+    "pathHeader": "x-nextjs-rewritten-path",
+    "queryHeader": "x-nextjs-rewritten-query"
+  }
+}
