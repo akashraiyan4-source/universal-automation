@@ -1,73 +1,87 @@
-import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import twilio from 'twilio';
-import { GoogleGenAI } from '@google/genai';
+import { fail, ok, parseJson, withApi } from '@/src/lib/api';
+import { env } from '@/src/lib/env';
+import { checkInternalKey } from '@/src/lib/internal-auth';
+import { kv } from '@/src/lib/kv';
+import { maskPhone, normalizePhone } from '@/src/lib/sanitize';
+import { escapeXml } from '@/src/lib/twilio-auth';
+import { ApiError } from '@/src/middlewares/errorHandler';
+import { logger } from '@/src/middlewares/logger';
+import { generateReply, isAiConfigured, promptSafe } from '@/src/services/geminiService';
+import { nicheField } from '@/src/validators/commonValidator';
 
-const VoiceResponse = twilio.twiml.VoiceResponse;
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const CALLBACK_COOLDOWN_SECONDS = 10 * 60;
 
-export async function POST(request: Request) {
+const schema = z.object({
+    customerPhone: z.string().trim().max(30),
+    niche: nicheField,
+    brandName: z.string().trim().max(80).optional(),
+});
+
+/**
+ * POST /voice-agent-bridge/missed-call-callback   (alias: POST /api/missed-call-callback)
+ * Places an outbound AI call. This spends money, so it is protected by INTERNAL_API_KEY,
+ * validates the destination as E.164, de-duplicates per number, and XML-escapes all TwiML text.
+ */
+async function POSTHandler(request: Request) {
+    const auth = checkInternalKey(request);
+    if (!auth.ok) return fail(auth.error, auth.status);
+
+    const input = await parseJson(request, schema);
+    const customerPhone = normalizePhone(input.customerPhone);
+    if (!customerPhone) throw new ApiError('A valid customer phone number is required for AI callback.', 400);
+
+    const accountSid = env.twilioAccountSid();
+    const authToken = env.twilioAuthToken();
+    const fromNumber = env.twilioPhone();
+    if (!accountSid || !authToken || !fromNumber) {
+        throw new ApiError('Voice calling is not configured.', 503);
+    }
+
+    // One callback per number per 10 minutes – blocks repeat-dial abuse and accidental double triggers.
+    const claimed = await kv.setIfAbsent(`callback:${customerPhone}`, 1, CALLBACK_COOLDOWN_SECONDS);
+    if (!claimed) {
+        throw new ApiError('A callback to this number was already triggered recently.', 429, undefined, { 'Retry-After': String(CALLBACK_COOLDOWN_SECONDS) });
+    }
+
+    const niche = promptSafe(input.niche.replace(/-/g, ' '), 'service', 40);
+    const brand = promptSafe(input.brandName, 'Our Enterprise Desk');
+
+    let aiGreeting = `Hello, this is the AI assistant from ${brand}. We noticed we missed your call regarding our ${niche} services. How can I help you today?`;
+    if (isAiConfigured()) {
+        try {
+            aiGreeting = await generateReply({
+                systemInstruction: `Create a short, warm, natural conversational greeting (1-2 sentences) from an AI assistant for a missed call callback for the business "${brand}" in the "${niche}" niche. Acknowledge that we missed their live call and ask how we can assist right now. Plain text only, no markdown.`,
+                message: 'Write the greeting now.',
+                maxOutputTokens: 120,
+                timeoutMs: 6_000,
+            });
+        } catch (error) {
+            logger.warn('voice.callback.ai_fallback', { reason: error instanceof Error ? error.message : 'unknown' });
+        }
+    }
+
+    const baseUrl = (env.publicBaseUrl() ?? new URL(request.url).origin).replace(/\/$/, '');
+    const speechUrl = `${baseUrl}/api/voice-agent-bridge/process-speech?niche=${encodeURIComponent(input.niche)}&brandName=${encodeURIComponent(brand)}`;
+    const voice = 'Polly.Stephen-Neural';
+
     try {
-        let body: any = {};
-        try {
-            body = await request.json();
-        } catch {
-            const formData = await request.formData().catch(() => null);
-            if (formData) {
-                body = {
-                    customerPhone: formData.get('To') || formData.get('customerPhone'),
-                    niche: formData.get('niche'),
-                    brandName: formData.get('brandName')
-                };
-            }
-        }
-
-        const { customerPhone, niche, brandName } = body;
-
-        if (!customerPhone) {
-            return NextResponse.json({ success: false, error: 'Customer phone is required for AI callback.' }, { status: 400 });
-        }
-
-        const cleanNiche = niche ? niche.trim().toLowerCase() : 'service';
-        const brand = brandName || 'Our Enterprise Desk';
-        const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-
-        // ১. জেমিনি এআই দিয়ে মিসড কলের জন্য কাস্টম হিউম্যান-লাইক কনভারসেশন স্কিপ্ট বা মেসেজ জেনারেট করা
-        const prompt = `Create a short, warm, and natural conversational greeting (1-2 sentences) from an AI assistant for a missed call callback. The business is "${brand}" in the "${cleanNiche}" niche. Acknowledge that we missed their live call and ask how we can assist them right now. No markdown.`;
-        
-        let aiGreeting = `Hello, this is the AI assistant from ${brand}. We noticed we missed your call regarding our ${cleanNiche} services. How can I help you today?`;
-        
-        try {
-            const res = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
-            if (res.text) aiGreeting = res.text.trim();
-        } catch (e) {
-            console.error('AI text generation error:', e);
-        }
-
-        // ২. টুইলিও দিয়ে কাস্টমারের নম্বরে রিয়েল-টাইম আউটবাউন্ড কল ট্রিগার করা
-        // এই TwiML-এর ভেতরে ElevenLabs বা Polly Neural ভয়েস দিয়ে এআই কথা বলাবে
-        const callbackUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://yourdomain.com'}/api/voice-agent-bridge/process-speech?niche=${encodeURIComponent(cleanNiche)}&brandName=${encodeURIComponent(brand)}`;
-
-        const outboundCall = await twilioClient.calls.create({
+        const call = await twilio(accountSid, authToken).calls.create({
             to: customerPhone,
-            from: process.env.TWILIO_PHONE_NUMBER!,
-            // Twilio কল রিসিভ করার সাথে সাথে এই TwiML এক্সিকিউট করবে
-            twiml: `<Response><Say voice="Polly.Stephen-Neural">${aiGreeting}</Say><Gather input="speech" action="${callbackUrl}" method="POST" timeout="5" speechTimeout="auto" language="en-US"><Say voice="Polly.Stephen-Neural">Please let me know, what would you like to discuss?</Say></Gather></Response>`
+            from: fromNumber,
+            twiml: `<Response><Say voice="${voice}">${escapeXml(aiGreeting)}</Say><Gather input="speech" action="${escapeXml(speechUrl)}" method="POST" timeout="5" speechTimeout="auto" language="en-US"><Say voice="${voice}">Please let me know, what would you like to discuss?</Say></Gather></Response>`,
         });
-
-        console.log(`[AI Missed Call Callback] Outbound call triggered to ${customerPhone} (SID: ${outboundCall.sid})`);
-
-        return NextResponse.json({
-            success: true,
-            message: 'AI missed call callback initiated successfully with instant phone call and voice bridge!',
-            data: {
-                callSid: outboundCall.sid,
-                customerPhone,
-                status: outboundCall.status
-            }
-        }, { status: 200 });
-
-    } catch (error: any) {
-        console.error('[AI Missed Call Callback Critical Error]:', error?.message || error);
-        return NextResponse.json({ success: false, error: error?.message || 'Failed to trigger callback.' }, { status: 500 });
+        logger.info('voice.callback.placed', { to: maskPhone(customerPhone), sid: call.sid });
+        return ok(
+            { callSid: call.sid, customerPhone, status: call.status },
+            { message: 'AI missed call callback initiated successfully.' }
+        );
+    } catch (error) {
+        await kv.delete(`callback:${customerPhone}`); // allow a retry after a provider failure
+        logger.error('voice.callback.failed', error);
+        throw new ApiError('Failed to trigger callback.', 502);
     }
 }
+
+export const POST = withApi(POSTHandler);

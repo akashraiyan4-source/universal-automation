@@ -1,3 +1,4 @@
+import { withApi } from '@/src/lib/api';
 import { NextResponse } from 'next/server';
 
 // Enterprise-grade TypeScript Interface for Universal Webhook Payload
@@ -11,7 +12,7 @@ interface WebhookPayload {
     niche?: string;
 }
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
     try {
         let payload: WebhookPayload;
         try {
@@ -73,3 +74,5 @@ export async function POST(request: Request) {
         }, { status: 500 });
     }
 }
+
+export const POST = withApi(POSTHandler);

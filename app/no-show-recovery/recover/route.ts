@@ -1,3 +1,4 @@
+import { withApi } from '@/src/lib/api';
 import { NextResponse } from 'next/server';
 import { noShowDatabase } from '@/app/api/db';
 
@@ -27,7 +28,7 @@ const getUniversalRecoveryMessage = (niche: string): string => {
     }
 };
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
     try {
         let body: NoShowRequestBody;
         try {
@@ -102,3 +103,5 @@ export async function POST(request: Request) {
         );
     }
 }
+
+export const POST = withApi(POSTHandler);

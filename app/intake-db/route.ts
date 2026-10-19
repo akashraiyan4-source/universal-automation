@@ -1,3 +1,4 @@
+import { withApi } from '@/src/lib/api';
 import { NextResponse } from 'next/server';
 
 // Enterprise-grade TypeScript Interface for Universal Intake Payload
@@ -14,7 +15,7 @@ interface IntakePayload {
     niche?: string;
 }
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
     try {
         let body: IntakePayload;
         try {
@@ -51,8 +52,8 @@ export async function POST(request: Request) {
 
         const cleanName = resolvedName.trim();
         const cleanPhone = phone.trim();
-        const cleanEmail = email && typeof email === 'string' ? email.trim() : 'Not Provided';
-        const cleanDetails = symptoms || projectScope || 'General Inquiry / Checkup';
+        const _cleanEmail = email && typeof email === 'string' ? email.trim() : 'Not Provided';
+        const _cleanDetails = symptoms || projectScope || 'General Inquiry / Checkup';
         const cleanService = treatmentInterest || serviceInterest || 'General Consultation';
         const cleanNiche = niche && typeof niche === 'string' ? niche.trim().toLowerCase() : 'enterprise / general';
 
@@ -87,3 +88,5 @@ export async function POST(request: Request) {
         }, { status: 500 });
     }
 }
+
+export const POST = withApi(POSTHandler);

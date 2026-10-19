@@ -31,111 +31,130 @@ declare global {
     var globalSentimentDatabase: any[] | undefined;
 }
 
-export const appointmentsDatabase = global.globalAppointments || [];
+/**
+ * Bounded in-memory log/collection. Oldest entries are evicted once `max` is exceeded so an
+ * unauthenticated flood of submissions can never exhaust server memory.
+ * NOTE: in-memory data is per serverless instance and not durable – persist to Supabase for production records.
+ */
+const MAX_IN_MEMORY_RECORDS = 5000;
+function createBoundedLog(max: number = MAX_IN_MEMORY_RECORDS): any[] {
+    const list: any[] = [];
+    const nativePush = list.push.bind(list);
+    Object.defineProperty(list, 'push', {
+        enumerable: false,
+        value: (...items: any[]) => {
+            nativePush(...items);
+            if (list.length > max) list.splice(0, list.length - max);
+            return list.length;
+        },
+    });
+    return list;
+}
+export const appointmentsDatabase = global.globalAppointments || createBoundedLog();
 if (!global.globalAppointments) { global.globalAppointments = appointmentsDatabase; }
 
-export const aiDatabase = global.globalAiDatabase || [];
+export const aiDatabase = global.globalAiDatabase || createBoundedLog();
 if (!global.globalAiDatabase) { global.globalAiDatabase = aiDatabase; }
 
-export const analyticsDatabase = global.globalAnalyticsDatabase || [];
+export const analyticsDatabase = global.globalAnalyticsDatabase || createBoundedLog();
 if (!global.globalAnalyticsDatabase) { global.globalAnalyticsDatabase = analyticsDatabase; }
 
-export const broadcastDatabase = global.globalBroadcastDatabase || [];
+export const broadcastDatabase = global.globalBroadcastDatabase || createBoundedLog();
 if (!global.globalBroadcastDatabase) { global.globalBroadcastDatabase = broadcastDatabase; }
 
-export const costEstimatorDatabase = global.globalCostEstimatorDatabase || [];
+export const costEstimatorDatabase = global.globalCostEstimatorDatabase || createBoundedLog();
 if (!global.globalCostEstimatorDatabase) { global.globalCostEstimatorDatabase = costEstimatorDatabase; }
 
 // এক্সট্রা অ্যালাইয়াস যাতে কোনো রাউট ফাইলে নাম নিয়ে সমস্যা না হয়
 export const estimatedDatabase = costEstimatorDatabase;
 
-export const followUpDatabase = global.globalFollowUpDatabase || [];
+export const followUpDatabase = global.globalFollowUpDatabase || createBoundedLog();
 if (!global.globalFollowUpDatabase) { global.globalFollowUpDatabase = followUpDatabase; }
 
-export const geminiConciergeDatabase = global.globalGeminiConciergeDatabase || [];
+export const geminiConciergeDatabase = global.globalGeminiConciergeDatabase || createBoundedLog();
 if (!global.globalGeminiConciergeDatabase) { global.globalGeminiConciergeDatabase = geminiConciergeDatabase; }
 
-export const insuranceDatabase = global.globalInsuranceDatabase || [];
+export const insuranceDatabase = global.globalInsuranceDatabase || createBoundedLog();
 if (!global.globalInsuranceDatabase) { global.globalInsuranceDatabase = insuranceDatabase; }
 
-export const leadScoringDatabase = global.globalLeadScoringDatabase || [];
+export const leadScoringDatabase = global.globalLeadScoringDatabase || createBoundedLog();
 if (!global.globalLeadScoringDatabase) { global.globalLeadScoringDatabase = leadScoringDatabase; }
 
 // এক্সট্রা অ্যালাইয়াস
 export const scoredLeadsDatabase = leadScoringDatabase;
 
-export const leadsDatabase = global.globalLeadsDatabase || [];
+export const leadsDatabase = global.globalLeadsDatabase || createBoundedLog();
 if (!global.globalLeadsDatabase) { global.globalLeadsDatabase = leadsDatabase; }
 
-export const loyaltyDatabase = global.globalLoyaltyDatabase || [];
+export const loyaltyDatabase = global.globalLoyaltyDatabase || createBoundedLog();
 if (!global.globalLoyaltyDatabase) { global.globalLoyaltyDatabase = loyaltyDatabase; }
 
-export const missedCallDatabase = global.globalMissedCallDatabase || [];
+export const missedCallDatabase = global.globalMissedCallDatabase || createBoundedLog();
 if (!global.globalMissedCallDatabase) { global.globalMissedCallDatabase = missedCallDatabase; }
 
-export const noShowDatabase = global.globalNoShowDatabase || [];
+export const noShowDatabase = global.globalNoShowDatabase || createBoundedLog();
 if (!global.globalNoShowDatabase) { global.globalNoShowDatabase = noShowDatabase; }
 
-export const onboardingDatabase = global.globalOnboardingDatabase || [];
+export const onboardingDatabase = global.globalOnboardingDatabase || createBoundedLog();
 if (!global.globalOnboardingDatabase) { global.globalOnboardingDatabase = onboardingDatabase; }
 
-export const postTreatmentDatabase = global.globalPostTreatmentDatabase || [];
+export const postTreatmentDatabase = global.globalPostTreatmentDatabase || createBoundedLog();
 if (!global.globalPostTreatmentDatabase) { global.globalPostTreatmentDatabase = postTreatmentDatabase; }
 
 // পোস্ট-ট্রিটমেন্ট রিকভারির জন্য এক্সট্রা অ্যালাইয়াস
 export const recoveryDatabase = postTreatmentDatabase;
 
-export const prepReminderDatabase = global.globalPrepReminderDatabase || [];
+export const prepReminderDatabase = global.globalPrepReminderDatabase || createBoundedLog();
 if (!global.globalPrepReminderDatabase) { global.globalPrepReminderDatabase = prepReminderDatabase; }
 
-export const recallEngineDatabase = global.globalRecallEngineDatabase || [];
+export const recallEngineDatabase = global.globalRecallEngineDatabase || createBoundedLog();
 if (!global.globalRecallEngineDatabase) { global.globalRecallEngineDatabase = recallEngineDatabase; }
 
 // রিকল ইঞ্জিন রাউটের জন্য এক্সট্রা অ্যালাইয়াস
 export const recallDatabase = recallEngineDatabase;
 
-export const referralDatabase = global.globalReferralDatabase || [];
+export const referralDatabase = global.globalReferralDatabase || createBoundedLog();
 if (!global.globalReferralDatabase) { global.globalReferralDatabase = referralDatabase; }
 
-export const reviewsDatabase = global.globalReviewsDatabase || [];
+export const reviewsDatabase = global.globalReviewsDatabase || createBoundedLog();
 if (!global.globalReviewsDatabase) { global.globalReviewsDatabase = reviewsDatabase; }
 
-export const reviewRequestsDatabase = global.globalReviewRequestsDatabase || [];
+export const reviewRequestsDatabase = global.globalReviewRequestsDatabase || createBoundedLog();
 if (!global.globalReviewRequestsDatabase) { global.globalReviewRequestsDatabase = reviewRequestsDatabase; }
 
-export const smartFaqDatabase = global.globalSmartFaqDatabase || [];
+export const smartFaqDatabase = global.globalSmartFaqDatabase || createBoundedLog();
 if (!global.globalSmartFaqDatabase) { global.globalSmartFaqDatabase = smartFaqDatabase; }
 
 // স্মার্ট এফএকিউ রা우টের জন্য এক্সট্রা অ্যালাইয়াস
 export const faqDatabase = smartFaqDatabase;
 
-export const smileSimulatorDatabase = global.globalSmileSimulatorDatabase || [];
+export const smileSimulatorDatabase = global.globalSmileSimulatorDatabase || createBoundedLog();
 if (!global.globalSmileSimulatorDatabase) { global.globalSmileSimulatorDatabase = smileSimulatorDatabase; }
 
-export const utilsDatabase = global.globalUtilsDatabase || [];
+export const utilsDatabase = global.globalUtilsDatabase || createBoundedLog();
 if (!global.globalUtilsDatabase) { global.globalUtilsDatabase = utilsDatabase; }
 
-export const vectorKnowledgeDatabase = global.globalVectorKnowledgeDatabase || [];
+export const vectorKnowledgeDatabase = global.globalVectorKnowledgeDatabase || createBoundedLog();
 if (!global.globalVectorKnowledgeDatabase) { global.globalVectorKnowledgeDatabase = vectorKnowledgeDatabase; }
 
 // ভেক্টর নলেজ রাউটের জন্য এক্সট্রা অ্যালাইয়াস
 export const vectorDatabase = vectorKnowledgeDatabase;
 
-export const voiceAgentBridgeDatabase = global.globalVoiceAgentBridgeDatabase || [];
+export const voiceAgentBridgeDatabase = global.globalVoiceAgentBridgeDatabase || createBoundedLog();
 if (!global.globalVoiceAgentBridgeDatabase) { global.globalVoiceAgentBridgeDatabase = voiceAgentBridgeDatabase; }
 
-export const whatsappDatabase = global.globalWhatsappDatabase || [];
+export const whatsappDatabase = global.globalWhatsappDatabase || createBoundedLog();
 if (!global.globalWhatsappDatabase) { global.globalWhatsappDatabase = whatsappDatabase; }
 
 // হোয়াটসঅ্যাপ ইন্টিগ্রেশন রাউটের জন্য এক্সট্রা অ্যালাইয়াস
 export const whatsappLogs = whatsappDatabase;
 
 // --- নতুন ৩টি ফিচারের ডেটাবেজ ও লগ অ্যারে ---
-export const invoiceDatabase = global.globalInvoiceDatabase || [];
+export const invoiceDatabase = global.globalInvoiceDatabase || createBoundedLog();
 if (!global.globalInvoiceDatabase) { global.globalInvoiceDatabase = invoiceDatabase; }
 
-export const multilanguageLogs = global.globalMultilanguageDatabase || [];
+export const multilanguageLogs = global.globalMultilanguageDatabase || createBoundedLog();
 if (!global.globalMultilanguageDatabase) { global.globalMultilanguageDatabase = multilanguageLogs; }
 
-export const sentimentLogs = global.globalSentimentDatabase || [];
+export const sentimentLogs = global.globalSentimentDatabase || createBoundedLog();
 if (!global.globalSentimentDatabase) { global.globalSentimentDatabase = sentimentLogs; }

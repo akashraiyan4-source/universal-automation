@@ -1,6 +1,7 @@
+import { withApi } from '@/src/lib/api';
 import { NextResponse } from 'next/server';
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   try {
     const { propertyPrice, downPaymentPercent, interestRate, loanTermYears } = await request.json().catch(() => ({}));
 
@@ -33,3 +34,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, error: 'Failed to calculate mortgage.' }, { status: 500 });
   }
 }
+
+export const POST = withApi(POSTHandler);

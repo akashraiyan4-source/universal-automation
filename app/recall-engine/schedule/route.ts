@@ -1,3 +1,4 @@
+import { withApi } from '@/src/lib/api';
 import { NextResponse } from 'next/server';
 import { recallDatabase } from '@/app/api/db';
 
@@ -13,7 +14,7 @@ interface RecallRequestBody {
     [key: string]: any; // Allow any dynamic fields for universal flexibility
 }
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
     try {
         let body: RecallRequestBody;
         try {
@@ -75,3 +76,5 @@ export async function POST(request: Request) {
         );
     }
 }
+
+export const POST = withApi(POSTHandler);

@@ -1,3 +1,4 @@
+import { withApi } from '@/src/lib/api';
 import { NextResponse } from 'next/server';
 
 // Enterprise-grade TypeScript Interface for Universal Voice Session Payload
@@ -9,7 +10,7 @@ interface VoiceSessionRequestBody {
     [key: string]: any; // Allow any dynamic payload fields
 }
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
     try {
         let body: VoiceSessionRequestBody = {};
         try {
@@ -69,3 +70,5 @@ export async function POST(request: Request) {
         );
     }
 }
+
+export const POST = withApi(POSTHandler);

@@ -1,12 +1,16 @@
 import { NextResponse } from 'next/server';
 import twilio from 'twilio';
+import { withApi } from '@/src/lib/api';
+import { env } from '@/src/lib/env';
+import { sanitizeString } from '@/src/lib/sanitize';
+import { guardTwilioWebhook } from '@/src/lib/twilio-auth';
+import { logger } from '@/src/middlewares/logger';
 
 const VoiceResponse = twilio.twiml.VoiceResponse;
 
-// ১০০% ইউনিভার্সাল ইমার্জেন্সি কল রাউটার (যেকোনো নিশের জন্য প্রযোজ্য)
+// 100% universal emergency call router (works for any niche)
 function routeEmergencyCallToSpecialist(brandName: string, niche: string): string {
-    // যেকোনো নিশের জন্য পরিবেশ বা এনভায়রনমেন্ট ভেরিয়েবল থেকে ফলব্যাক বা স্পেশালিস্ট নম্বর পিক করবে
-    const specialistPhone = process.env.EMERGENCY_MANAGER_PHONE || process.env.STAFF_PHONE_NUMBER;
+    const specialistPhone = env.get('EMERGENCY_MANAGER_PHONE') || env.get('STAFF_PHONE_NUMBER');
     const response = new VoiceResponse();
 
     if (!specialistPhone) {
@@ -15,35 +19,34 @@ function routeEmergencyCallToSpecialist(brandName: string, niche: string): strin
     }
 
     response.say({ voice: 'Polly.Stephen-Neural' as any, language: 'en-US' }, `This sounds like an urgent situation regarding your ${niche} request at ${brandName}. Connecting you to our on-call specialist right now.`);
-    
+
     const dial = response.dial({
-        callerId: process.env.TWILIO_PHONE_NUMBER,
+        callerId: env.twilioPhone(),
         timeout: 25,
-        action: '/api/voice-agent-bridge/transfer-fallback'
+        action: `/api/voice-agent-bridge/transfer-fallback?niche=${encodeURIComponent(niche)}&brandName=${encodeURIComponent(brandName)}`
     });
     dial.number(specialistPhone);
     return response.toString();
 }
 
-export async function POST(request: Request) {
+const EMERGENCY_KEYWORDS = ['emergency', 'urgent', 'leak', 'broken', 'damage', 'bleeding', 'severe pain', 'accident', 'critical', 'fail', 'danger'];
+
+async function POSTHandler(request: Request) {
+    const rejected = await guardTwilioWebhook(request);
+    if (rejected) return rejected;
+
     try {
         const formData = await request.formData().catch(() => null);
-        const callerSpeech = ((formData?.get('SpeechResult') as string) || '').toLowerCase();
-        const callerPhone = (formData?.get('From') as string) || 'Unknown Line';
+        const callerSpeech = (formData?.get('SpeechResult')?.toString() || '').toLowerCase().slice(0, 1000);
+        const callerPhone = formData?.get('From')?.toString() || 'Unknown Line';
 
-        // URL কুয়েরি বা ফর্ম ডাটা থেকে ডাইনামিক নিশ ও ব্র্যান্ড ডিটেক্ট করা
         const urlObj = new URL(request.url);
-        const queryNiche = urlObj.searchParams.get('niche') || formData?.get('niche')?.toString() || 'General Service';
-        const queryBrand = urlObj.searchParams.get('brandName') || formData?.get('brandName')?.toString() || 'Enterprise Global Desk';
+        const queryNiche = sanitizeString(urlObj.searchParams.get('niche') || formData?.get('niche')?.toString() || '', 40) || 'General Service';
+        const queryBrand = sanitizeString(urlObj.searchParams.get('brandName') || formData?.get('brandName')?.toString() || '', 80) || 'Enterprise Global Desk';
 
-        // ইউনিভার্সাল ইমার্জেন্সি কিওয়ার্ড (যেকোনো নিশের জরুরি সমস্যার ক্ষেত্রে কমন)
-        const emergencyKeywords = ['emergency', 'urgent', 'leak', 'broken', 'damage', 'bleeding', 'severe pain', 'accident', 'critical', 'fail', 'danger'];
-        const isEmergency = emergencyKeywords.some(keyword => callerSpeech.includes(keyword));
-
-        if (isEmergency) {
-            console.log(`[Ultimate Universal Voice Speech] Emergency detected for caller ${callerPhone} in niche: ${queryNiche}`);
-            const handoffTwiML = routeEmergencyCallToSpecialist(queryBrand, queryNiche);
-            return new NextResponse(handoffTwiML, { status: 200, headers: { 'Content-Type': 'text/xml' } });
+        if (EMERGENCY_KEYWORDS.some((keyword) => callerSpeech.includes(keyword))) {
+            logger.warn('voice.emergency_detected', { from: callerPhone, niche: queryNiche });
+            return new NextResponse(routeEmergencyCallToSpecialist(queryBrand, queryNiche), { status: 200, headers: { 'Content-Type': 'text/xml' } });
         }
 
         const twiml = new VoiceResponse();
@@ -57,10 +60,12 @@ export async function POST(request: Request) {
         return new NextResponse(twiml.toString(), { status: 200, headers: { 'Content-Type': 'text/xml' } });
 
     } catch (error: any) {
-        console.error('[Ultimate Universal Speech Processing Critical Error]:', error?.message || error);
+        logger.error('voice.process_speech.failed', error);
         const twiml = new VoiceResponse();
         twiml.say('Thank you for calling. Our team will follow up shortly.');
         twiml.hangup();
         return new NextResponse(twiml.toString(), { status: 200, headers: { 'Content-Type': 'text/xml' } });
     }
 }
+
+export const POST = withApi(POSTHandler);

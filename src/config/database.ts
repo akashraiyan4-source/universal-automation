@@ -1,24 +1,31 @@
-﻿import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { env, isTest } from '../lib/env';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key';
+/**
+ * Single Supabase client for the whole backend (server-side only).
+ *
+ * - Prefers the service-role key (server secret – NEVER expose via NEXT_PUBLIC_*).
+ * - Falls back to the anon key, then to an inert placeholder client so imports never crash a cold start.
+ * - Cached on `globalThis` so hot-reload / multiple route bundles share one connection pool.
+ */
+const supabaseUrl = env.supabaseUrl();
+const supabaseKey = env.supabaseKey();
 
-export const isSupabaseConfigured = Boolean(
-  process.env.NEXT_PUBLIC_SUPABASE_URL &&
-  (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) &&
-  !supabaseUrl.includes('placeholder')
-);
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseKey);
+export const isDbConfigured = isSupabaseConfigured;
 
-const globalForSupabase = globalThis as unknown as { supabaseClient: SupabaseClient | undefined };
+if (!isSupabaseConfigured && !isTest()) {
+  console.warn('[Database] Supabase credentials missing – running with in-memory fallbacks only.');
+}
+
+const globalForSupabase = globalThis as unknown as { supabaseClient?: SupabaseClient };
 
 export const supabase: SupabaseClient =
-  globalForSupabase.supabaseClient ?? createClient(supabaseUrl, supabaseKey, {
-    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+  globalForSupabase.supabaseClient ??
+  createClient(supabaseUrl ?? 'https://placeholder.supabase.co', supabaseKey ?? 'placeholder-key', {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
 
 export const db = supabase;
-export const isDbConfigured = isSupabaseConfigured;
 
-if (process.env.NODE_ENV !== 'production') {
-  globalForSupabase.supabaseClient = supabase;
-}
+globalForSupabase.supabaseClient = supabase;

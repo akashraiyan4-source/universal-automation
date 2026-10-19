@@ -1,3 +1,4 @@
+import { withApi } from '@/src/lib/api';
 import { NextResponse } from 'next/server';
 import { sentimentLogs } from '@/app/api/db';
 
@@ -25,7 +26,7 @@ const getUniversalAlertMessage = (niche: string): string => {
     }
 };
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
     try {
         let body: SentimentRequestBody;
         try {
@@ -86,7 +87,7 @@ export async function POST(request: Request) {
             if (typeof sentimentLogs !== 'undefined' && Array.isArray(sentimentLogs)) {
                 sentimentLogs.push(sentimentRecord);
             }
-        } catch (dbError) {
+        } catch {
             console.warn('[Ultimate Sentiment DB Warning]: Could not push to central log database, proceeding with response.');
         }
 
@@ -114,3 +115,5 @@ export async function POST(request: Request) {
         );
     }
 }
+
+export const POST = withApi(POSTHandler);

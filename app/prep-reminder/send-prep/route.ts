@@ -1,3 +1,4 @@
+import { withApi } from '@/src/lib/api';
 import { NextResponse } from 'next/server';
 import { prepReminderDatabase } from '@/app/api/db';
 
@@ -34,7 +35,7 @@ const getUniversalPrepInstructions = (niche: string, service: string): string =>
     }
 };
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
     try {
         let body: PrepReminderRequestBody;
         try {
@@ -110,3 +111,5 @@ export async function POST(request: Request) {
         );
     }
 }
+
+export const POST = withApi(POSTHandler);

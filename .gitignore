@@ -1,11 +1,27 @@
+# dependencies
+node_modules/
+
+# Next.js build output
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
 
 # Playwright
-node_modules/
 /test-results/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
 
+# Vercel
 .vercel
+
+# Environment files – never commit real secrets, but DO commit the template
 .env*
+!.env.example
+
+# Misc
+.DS_Store
+*.pem
+npm-debug.log*

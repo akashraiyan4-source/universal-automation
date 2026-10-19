@@ -1,3 +1,4 @@
+import { withApi } from '@/src/lib/api';
 import { NextResponse } from 'next/server';
 
 // Enterprise-grade TypeScript Interface for Universal Pre-Screening Payload
@@ -9,7 +10,7 @@ interface ConsultationPayload {
     niche?: string;
 }
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
     try {
         let body: ConsultationPayload;
         try {
@@ -69,3 +70,5 @@ export async function POST(request: Request) {
         }, { status: 500 });
     }
 }
+
+export const POST = withApi(POSTHandler);

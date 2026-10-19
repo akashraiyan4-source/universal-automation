@@ -1,3 +1,4 @@
+import { withApi } from '@/src/lib/api';
 import { NextResponse } from 'next/server';
 import { insuranceDatabase } from '../../db';
 
@@ -13,7 +14,7 @@ interface InsuranceQualificationRequestBody {
     niche?: string;
 }
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
     try {
         let body: InsuranceQualificationRequestBody;
         try {
@@ -94,3 +95,5 @@ export async function POST(request: Request) {
         );
     }
 }
+
+export const POST = withApi(POSTHandler);

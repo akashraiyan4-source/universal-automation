@@ -1,12 +1,16 @@
 // utils/circuit-breaker.ts
+// Circuit Breaker for flaky third-party calls (Twilio SMS, AI webhooks): after `threshold` consecutive
+// failures it fails fast for `timeout` ms instead of piling more requests onto a struggling upstream.
+type State = 'CLOSED' | 'OPEN' | 'HALF-OPEN';
+
 class CircuitBreaker {
     private failureCount = 0;
-    private state: 'CLOSED' | 'OPEN' | 'HALF-OPEN' = 'CLOSED';
+    private state: State = 'CLOSED';
     private nextAttempt = Date.now();
-    private threshold = 3; // ৩ বার ফেল করলে ওপেন হবে
-    private timeout = 30000; // ৩০ সেকেন্ড পর আবার চেষ্টা করবে
 
-    async fire(action: Function): Promise<any> {
+    constructor(private readonly threshold = 3, private readonly timeout = 30_000) {}
+
+    async fire<T>(action: () => Promise<T>): Promise<T> {
         if (this.state === 'OPEN') {
             if (Date.now() > this.nextAttempt) {
                 this.state = 'HALF-OPEN';
@@ -32,7 +36,7 @@ class CircuitBreaker {
 
     private handleFailure() {
         this.failureCount++;
-        if (this.failureCount >= this.threshold) {
+        if (this.state === 'HALF-OPEN' || this.failureCount >= this.threshold) {
             this.state = 'OPEN';
             this.nextAttempt = Date.now() + this.timeout;
             console.warn('[Circuit Breaker] Threshold reached. State changed to OPEN.');

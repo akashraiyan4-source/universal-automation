@@ -1,52 +1,36 @@
-import { NextResponse } from 'next/server';
-import { appointmentsDatabase } from '../../db';
+import { z } from 'zod';
+import { ok, withApi } from '@/src/lib/api';
+import { ApiError, zodDetails } from '@/src/middlewares/errorHandler';
+import { findActive, maskName } from '@/src/services/appointmentService';
+import { nicheField, phoneField } from '@/src/validators/commonValidator';
 
-export async function GET(request: Request) {
-    try {
-        const { searchParams } = new URL(request.url);
-        const rawPhone = searchParams.get('phone');
+const querySchema = z.object({ phone: phoneField, niche: nicheField });
 
-        // ১. ফোন নম্বর প্যারামিটার ভ্যালিডেশন চেক
-        if (!rawPhone || typeof rawPhone !== 'string' || rawPhone.trim() === '') {
-            return NextResponse.json(
-                { success: false, error: 'Phone query parameter is required and must be a valid string.' },
-                { status: 400 }
-            );
-        }
+/**
+ * GET /booking/check?phone=…&niche=…   (alias: GET /api/appointment-check)
+ * Lookup is by phone only, so the response is intentionally minimised (masked name, no contact data).
+ */
+export const GET = withApi(async (request) => {
+  const { searchParams } = new URL(request.url);
+  const parsed = querySchema.safeParse({
+    phone: searchParams.get('phone') ?? '',
+    niche: searchParams.get('niche') ?? undefined,
+  });
+  if (!parsed.success) {
+    throw new ApiError('A valid phone query parameter is required.', 400, zodDetails(parsed.error));
+  }
 
-        const cleanPhone = rawPhone.trim();
+  const { phone, niche } = parsed.data;
+  const appointment = findActive({ phone, niche: niche !== 'general' ? niche : undefined });
+  if (!appointment) throw new ApiError('No active appointment found for this phone number.', 404);
 
-        // ২. ডাটাবেজ থেকে অ্যাক্টিভ অ্যাপয়েন্টমেন্ট খুঁজে বের করা (বাতিল হওয়া বাদ দিয়ে)
-        const activeAppointment = appointmentsDatabase.find(
-            (apt: any) => apt.phone === cleanPhone && apt.status !== 'CANCELLED'
-        );
-
-        if (!activeAppointment) {
-            return NextResponse.json(
-                { success: false, message: 'No active appointment found for this phone number.' },
-                { status: 404 }
-            );
-        }
-
-        console.log(`[Universal Appointment Check] Active appointment found for phone: ${cleanPhone}`);
-
-        return NextResponse.json(
-            { 
-                success: true, 
-                appointment: activeAppointment 
-            }, 
-            { status: 200 }
-        );
-
-    } catch (error: any) {
-        console.error('[Universal Appointment Check Critical Error]:', error);
-        
-        return NextResponse.json(
-            { 
-                success: false, 
-                error: error.message || 'Server error during appointment verification.' 
-            }, 
-            { status: 500 }
-        );
-    }
-}
+  const summary = {
+    id: appointment.id,
+    fullName: maskName(appointment.fullName),
+    appointmentDate: appointment.appointmentDate,
+    treatment: appointment.treatment,
+    niche: appointment.niche,
+    status: appointment.status,
+  };
+  return ok({ appointment: summary }, { legacy: { appointment: summary } });
+});

@@ -1,3 +1,4 @@
+import { withApi } from '@/src/lib/api';
 import { NextResponse } from 'next/server';
 import { recoveryDatabase } from '@/app/api/db';
 
@@ -43,7 +44,7 @@ const getUniversalAiAdvice = (niche: string, scoreValue: number): string => {
     }
 };
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
     try {
         let body: RecoveryRequestBody;
         try {
@@ -121,3 +122,5 @@ export async function POST(request: Request) {
         );
     }
 }
+
+export const POST = withApi(POSTHandler);

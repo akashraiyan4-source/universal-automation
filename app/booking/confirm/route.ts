@@ -1,76 +1,35 @@
-import { NextResponse } from 'next/server';
-import { appointmentsDatabase } from '../../db';
+import { z } from 'zod';
+import { ok, parseJson, withApi } from '@/src/lib/api';
+import { ApiError } from '@/src/middlewares/errorHandler';
+import { logger } from '@/src/middlewares/logger';
+import { normalizePhone } from '@/src/lib/sanitize';
+import { findActive } from '@/src/services/appointmentService';
+import { nicheField, phoneField } from '@/src/validators/commonValidator';
 
-// Enterprise-grade TypeScript Interface for Confirmation Payload
-interface ConfirmRequestBody {
-    appointmentId?: string;
-    phone?: string;
-}
+const schema = z.object({
+  appointmentId: z.string().trim().max(64).optional(),
+  phone: phoneField.optional(),
+  niche: nicheField,
+});
 
-export async function POST(request: Request) {
-    try {
-        let body: ConfirmRequestBody;
-        try {
-            body = await request.json();
-        } catch {
-            return NextResponse.json(
-                { success: false, error: 'Invalid JSON payload provided.' },
-                { status: 400 }
-            );
-        }
+/** POST /booking/confirm   (alias: POST /api/appointment-confirm) */
+export const POST = withApi(async (request) => {
+  const input = await parseJson(request, schema);
+  if (!input.appointmentId && !input.phone) {
+    throw new ApiError('Valid appointmentId or phone is required to confirm.', 400);
+  }
 
-        const { appointmentId, phone } = body;
+  const appointment = findActive({
+    id: input.appointmentId,
+    phone: input.phone ? normalizePhone(input.phone) : null,
+    niche: input.niche !== 'general' ? input.niche : undefined,
+  });
+  if (!appointment) throw new ApiError('Appointment not found matching the provided details.', 404);
 
-        // ১. আইডেন্টিফায়ার ভ্যালিডেশন চেক
-        if (
-            (!appointmentId || typeof appointmentId !== 'string' || appointmentId.trim() === '') &&
-            (!phone || typeof phone !== 'string' || phone.trim() === '')
-        ) {
-            return NextResponse.json(
-                { success: false, error: 'Valid appointmentId or phone is required to confirm.' },
-                { status: 400 }
-            );
-        }
+  appointment.status = 'CONFIRMED';
+  appointment.confirmedAt = appointment.confirmedAt ?? new Date().toISOString();
+  appointment.updatedAt = new Date().toISOString();
+  logger.info('appointment.confirmed', { id: appointment.id, niche: appointment.niche });
 
-        const cleanId = appointmentId ? appointmentId.trim() : '';
-        const cleanPhone = phone ? phone.trim() : '';
-
-        // ২. ডাটাবেজ থেকে অ্যাপয়েন্টমেন্ট খুঁজে বের করা
-        const appointment = appointmentsDatabase.find((apt: any) => 
-            (cleanId && apt.id === cleanId) || (cleanPhone && apt.phone === cleanPhone)
-        );
-
-        if (!appointment) {
-            return NextResponse.json(
-                { success: false, error: 'Appointment not found matching the provided details.' },
-                { status: 404 }
-            );
-        }
-
-        // ৩. স্ট্যাটাস আপডেট ও কনফার্ম করা
-        appointment.status = 'CONFIRMED';
-        appointment.updatedAt = new Date().toISOString();
-
-        console.log(`[Universal Confirmation Engine] Appointment successfully confirmed for ID: ${appointment.id}`);
-
-        return NextResponse.json(
-            { 
-                success: true, 
-                message: 'Appointment successfully confirmed!', 
-                appointment 
-            }, 
-            { status: 200 }
-        );
-
-    } catch (error: any) {
-        console.error('[Universal Confirmation Engine Critical Error]:', error);
-        
-        return NextResponse.json(
-            { 
-                success: false, 
-                error: error.message || 'Server error during appointment confirmation.' 
-            }, 
-            { status: 500 }
-        );
-    }
-}
+  return ok({ appointment }, { message: 'Appointment successfully confirmed!', legacy: { appointment } });
+});

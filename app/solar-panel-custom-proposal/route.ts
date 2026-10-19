@@ -1,3 +1,4 @@
+import { withApi } from '@/src/lib/api';
 import { NextResponse } from 'next/server';
 
 interface SolarProposalPayload {
@@ -8,10 +9,10 @@ interface SolarProposalPayload {
   phone: string;
 }
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   try {
     const body: SolarProposalPayload = await request.json().catch(() => ({}));
-    const { clientName, monthlyBill, roofType = 'Asphalt Shingle', includeBatteryStorage = true, phone } = body;
+    const { clientName, monthlyBill, roofType: _roofType = 'Asphalt Shingle', includeBatteryStorage = true, phone } = body;
 
     if (!monthlyBill || !phone || !clientName) {
       return NextResponse.json({ 
@@ -54,3 +55,5 @@ export async function POST(request: Request) {
     }, { status: 500 });
   }
 }
+
+export const POST = withApi(POSTHandler);

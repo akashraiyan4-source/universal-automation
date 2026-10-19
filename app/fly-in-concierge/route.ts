@@ -1,3 +1,4 @@
+import { withApi } from '@/src/lib/api';
 import { NextResponse } from 'next/server';
 
 // Enterprise-grade TypeScript Interface for VIP Fly-In Logistics Payload
@@ -10,7 +11,7 @@ interface FlyInConciergePayload {
     niche?: string;
 }
 
-export async function POST(req: Request) {
+async function POSTHandler(req: Request) {
     try {
         let body: FlyInConciergePayload;
         try {
@@ -79,3 +80,5 @@ export async function POST(req: Request) {
         );
     }
 }
+
+export const POST = withApi(POSTHandler);

@@ -1,66 +1,63 @@
-import { NextResponse } from 'next/server';
+import { z } from 'zod';
+import { ok, parseJson, withApi } from '@/src/lib/api';
+import { kv } from '@/src/lib/kv';
+import { sha256Hex } from '@/src/lib/idempotency';
+import { normalizePhone } from '@/src/lib/sanitize';
+import { ApiError } from '@/src/middlewares/errorHandler';
+import { nicheField, phoneField } from '@/src/validators/commonValidator';
+import { newAppointmentId } from '@/src/services/appointmentService';
 
-// Enterprise-grade TypeScript Interface for Slot Lock Payload
-interface LockRequestBody {
-    slotTime?: string;
-    userPhone?: string;
-    niche?: string;
+const LOCK_SECONDS = 10 * 60;
+
+const schema = z.object({
+  slotTime: z.string().trim().min(2, 'Slot time is required').max(60),
+  userPhone: phoneField.optional(),
+  niche: nicheField,
+});
+
+interface SlotLock {
+  lockId: string;
+  owner: string;
+  expiresAt: string;
 }
 
-export async function POST(request: Request) {
-    try {
-        let body: LockRequestBody;
-        try {
-            body = await request.json();
-        } catch {
-            return NextResponse.json(
-                { success: false, error: 'Invalid JSON payload provided.' },
-                { status: 400 }
-            );
-        }
+/**
+ * POST /booking/lock-slot   (alias: POST /api/slot-lock)
+ * Holds a slot for 10 minutes. The lock is real: a second client asking for the same
+ * slot receives 409 until it expires; the same client simply refreshes its own lock.
+ */
+export const POST = withApi(async (request) => {
+  const input = await parseJson(request, schema);
+  const owner = (input.userPhone ? normalizePhone(input.userPhone) : null) ?? `guest:${request.headers.get('x-client-ip') ?? 'unknown'}`;
+  const key = `slot:${input.niche}:${await sha256Hex(input.slotTime.toLowerCase())}`;
 
-        const { slotTime, userPhone, niche } = body;
+  const lock: SlotLock = {
+    lockId: newAppointmentId('lock'),
+    owner,
+    expiresAt: new Date(Date.now() + LOCK_SECONDS * 1000).toISOString(),
+  };
 
-        // ১. স্লট টাইম ভ্যালিডেশন চেক
-        if (!slotTime || typeof slotTime !== 'string' || slotTime.trim() === '') {
-            return NextResponse.json(
-                { success: false, error: 'Slot time is required and must be a valid string.' },
-                { status: 400 }
-            );
-        }
+  const acquired = await kv.setIfAbsent(key, lock, LOCK_SECONDS);
+  let active = lock;
 
-        const cleanSlotTime = slotTime.trim();
-        const cleanPhone = userPhone && typeof userPhone === 'string' ? userPhone.trim() : 'Guest';
-        const cleanNiche = niche && typeof niche === 'string' ? niche.trim().toLowerCase() : 'general business';
-
-        // ২. ইউনিক লক আইডি জেনারেট করা
-        const lockId = `lock_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-        const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // ১০ মিনিট পর এক্সপায়ার হবে
-
-        console.log(`[Universal Slot Lock Engine] Slot (${cleanSlotTime}) temporarily locked for ${cleanPhone} in niche: ${cleanNiche}`);
-
-        return NextResponse.json(
-            {
-                success: true,
-                message: 'Slot locked temporarily for 10 minutes.',
-                lockId,
-                slotTime: cleanSlotTime,
-                expiresIn: '10m',
-                expiresAt,
-                userPhone: cleanPhone
-            }, 
-            { status: 200 }
-        );
-
-    } catch (error: any) {
-        console.error('[Universal Slot Lock Engine Critical Error]:', error);
-        
-        return NextResponse.json(
-            { 
-                success: false, 
-                error: error.message || 'Failed to lock slot due to server error.' 
-            }, 
-            { status: 500 }
-        );
+  if (!acquired) {
+    const existing = await kv.get<SlotLock>(key);
+    if (existing && existing.owner !== owner) {
+      throw new ApiError('This time slot is currently held by another client. Please choose a different time.', 409, undefined, {
+        'Retry-After': String(Math.max(1, Math.ceil((Date.parse(existing.expiresAt) - Date.now()) / 1000))),
+      });
     }
-}
+    if (existing) {
+      await kv.set(key, { ...existing, expiresAt: lock.expiresAt }, LOCK_SECONDS); // owner refreshes own lock
+      active = { ...existing, expiresAt: lock.expiresAt };
+    }
+  }
+
+  const payload = {
+    lockId: active.lockId,
+    slotTime: input.slotTime,
+    expiresIn: '10m',
+    expiresAt: active.expiresAt,
+  };
+  return ok(payload, { message: 'Slot locked temporarily for 10 minutes.', legacy: payload });
+});

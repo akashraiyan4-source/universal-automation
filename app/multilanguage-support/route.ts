@@ -1,3 +1,4 @@
+import { withApi } from '@/src/lib/api';
 import { NextResponse } from 'next/server';
 import { multilanguageLogs } from '@/app/api/db';
 
@@ -45,7 +46,7 @@ const getUniversalLocalizedResponse = (lang: string, niche: string): string => {
     }
 };
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
     try {
         let body: MultilanguageRequestBody;
         try {
@@ -89,7 +90,7 @@ export async function POST(request: Request) {
             if (typeof multilanguageLogs !== 'undefined' && Array.isArray(multilanguageLogs)) {
                 multilanguageLogs.push(translationRecord);
             }
-        } catch (dbError) {
+        } catch {
             console.warn('[Ultimate Multi-Language DB Warning]: Could not push to central log database, proceeding with response.');
         }
 
@@ -117,3 +118,5 @@ export async function POST(request: Request) {
         );
     }
 }
+
+export const POST = withApi(POSTHandler);

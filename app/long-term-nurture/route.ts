@@ -1,3 +1,4 @@
+import { withApi } from '@/src/lib/api';
 import { NextResponse } from 'next/server';
 
 // Enterprise-grade TypeScript Interface for Universal Drip Campaign Payload
@@ -10,7 +11,7 @@ interface NurtureRequestBody {
     tier?: string;
 }
 
-export async function POST(req: Request) {
+async function POSTHandler(req: Request) {
     try {
         let body: NurtureRequestBody;
         try {
@@ -83,3 +84,5 @@ export async function POST(req: Request) {
         );
     }
 }
+
+export const POST = withApi(POSTHandler);

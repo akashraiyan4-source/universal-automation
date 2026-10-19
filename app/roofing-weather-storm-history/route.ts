@@ -1,3 +1,4 @@
+import { withApi } from '@/src/lib/api';
 import { NextResponse } from 'next/server';
 
 interface StormPayload {
@@ -6,7 +7,7 @@ interface StormPayload {
   longitude?: number;
 }
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   try {
     const body: StormPayload = await request.json().catch(() => ({}));
     const { zipcode, latitude, longitude } = body;
@@ -43,3 +44,5 @@ export async function POST(request: Request) {
     }, { status: 500 });
   }
 }
+
+export const POST = withApi(POSTHandler);

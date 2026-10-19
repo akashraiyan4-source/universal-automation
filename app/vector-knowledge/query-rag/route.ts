@@ -1,3 +1,4 @@
+import { withApi } from '@/src/lib/api';
 import { NextResponse } from 'next/server';
 import { vectorKnowledgeDatabase } from '@/app/api/db';
 
@@ -72,7 +73,7 @@ const getUniversalRagKnowledge = (queryLower: string, niche: string) => {
     }
 };
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
     try {
         let body: RagRequestBody;
         try {
@@ -118,7 +119,7 @@ export async function POST(request: Request) {
             if (typeof vectorKnowledgeDatabase !== 'undefined' && Array.isArray(vectorKnowledgeDatabase)) {
                 vectorKnowledgeDatabase.push(ragResponse);
             }
-        } catch (dbError) {
+        } catch {
             console.warn('[Ultimate RAG DB Warning]: Could not push to central vector database, proceeding with response.');
         }
 
@@ -146,3 +147,5 @@ export async function POST(request: Request) {
         );
     }
 }
+
+export const POST = withApi(POSTHandler);

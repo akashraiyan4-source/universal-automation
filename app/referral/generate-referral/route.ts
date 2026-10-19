@@ -1,3 +1,4 @@
+import { withApi } from '@/src/lib/api';
 import { NextResponse } from 'next/server';
 import { referralDatabase } from '@/app/api/db';
 
@@ -12,7 +13,7 @@ interface ReferralRequestBody {
     apiKey?: string;
 }
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
     try {
         let body: ReferralRequestBody;
         try {
@@ -88,3 +89,5 @@ export async function POST(request: Request) {
         );
     }
 }
+
+export const POST = withApi(POSTHandler);

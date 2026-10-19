@@ -1,3 +1,4 @@
+import { withApi } from '@/src/lib/api';
 import { NextResponse } from 'next/server';
 import { invoiceDatabase } from '@/app/api/db';
 
@@ -13,7 +14,7 @@ interface InvoiceRequestBody {
     niche?: string;
 }
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
     try {
         let body: InvoiceRequestBody;
         try {
@@ -66,7 +67,7 @@ export async function POST(request: Request) {
             if (typeof invoiceDatabase !== 'undefined' && Array.isArray(invoiceDatabase)) {
                 invoiceDatabase.push(invoiceRecord);
             }
-        } catch (dbError) {
+        } catch {
             console.warn('[Ultimate Invoice DB Warning]: Could not push to central invoice database, proceeding with response.');
         }
 
@@ -94,3 +95,5 @@ export async function POST(request: Request) {
         );
     }
 }
+
+export const POST = withApi(POSTHandler);

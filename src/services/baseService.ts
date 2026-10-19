@@ -1,4 +1,4 @@
-﻿import { db, supabase } from '../config/database';
+import { db, supabase } from '../config/database';
 
 export class BaseService {
   protected db = db || supabase;

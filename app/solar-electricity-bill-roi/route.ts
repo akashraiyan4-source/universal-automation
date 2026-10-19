@@ -1,6 +1,7 @@
+import { withApi } from '@/src/lib/api';
 import { NextResponse } from 'next/server';
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   try {
     const { monthlyBill, stateCode } = await request.json().catch(() => ({}));
 
@@ -31,3 +32,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, error: 'Failed to compute solar ROI.' }, { status: 500 });
   }
 }
+
+export const POST = withApi(POSTHandler);

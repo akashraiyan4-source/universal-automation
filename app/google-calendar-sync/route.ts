@@ -1,3 +1,4 @@
+import { withApi } from '@/src/lib/api';
 import { NextResponse } from 'next/server';
 
 // Enterprise-grade TypeScript Interface for Universal Booking Payload
@@ -13,7 +14,7 @@ interface BookingPayload {
     niche?: string;
 }
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
     try {
         let body: BookingPayload;
         try {
@@ -82,3 +83,5 @@ export async function POST(request: Request) {
         }, { status: 500 });
     }
 }
+
+export const POST = withApi(POSTHandler);

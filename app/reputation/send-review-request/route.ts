@@ -1,72 +1,72 @@
-import { NextResponse } from 'next/server';
+import { z } from 'zod';
+import { ok, withApi } from '@/src/lib/api';
+import { fetchWithTimeout } from '@/src/lib/async';
+import { env } from '@/src/lib/env';
+import { ApiError, zodDetails } from '@/src/middlewares/errorHandler';
+import { logger } from '@/src/middlewares/logger';
 
-export async function GET(request: Request) {
-    try {
-        const { searchParams } = new URL(request.url);
-        const placeId = searchParams.get('placeId') || process.env.GOOGLE_PLACE_ID;
+// Google place ids are URL-safe base64-ish tokens; reject anything else so the query string cannot be tampered with.
+const placeIdSchema = z.string().trim().regex(/^[A-Za-z0-9_-]{10,200}$/, 'Invalid placeId');
 
-        const apiKey = process.env.GOOGLE_PLACES_API_KEY;
-        
-        // যদি এপিআই কি বা প্লেস আইডি না থাকে, তবে ল্যান্ডিং পেজের ডিজাইন ভাঙবে না, চমৎকার ফলব্যাক বা ডামি ৫-স্টার ডাটা দেখাবে
-        if (!apiKey || !placeId) {
-            return NextResponse.json({
-                success: true,
-                source: 'fallback',
-                data: {
-                    name: 'Verified Business Partner',
-                    rating: 5.0,
-                    totalReviews: 142,
-                    userRatingsTotal: 142,
-                    reviews: [
-                        {
-                            author_name: 'A Satisfied Client',
-                            rating: 5,
-                            relative_time_description: 'a week ago',
-                            text: 'Absolute 5-star experience! Professional, fast, and extremely reliable service.'
-                        },
-                        {
-                            author_name: 'Local Guide',
-                            rating: 5,
-                            relative_time_description: '2 weeks ago',
-                            text: 'Extremely professional and top-notch quality. Highly recommended!'
-                        }
-                    ]
-                }
-            });
-        }
+const FALLBACK = {
+    name: 'Verified Business Partner',
+    rating: 5.0,
+    totalReviews: 142,
+    userRatingsTotal: 142,
+    reviews: [
+        { author_name: 'A Satisfied Client', rating: 5, relative_time_description: 'a week ago', text: 'Absolute 5-star experience! Professional, fast, and extremely reliable service.' },
+        { author_name: 'Local Guide', rating: 5, relative_time_description: '2 weeks ago', text: 'Extremely professional and top-notch quality. Highly recommended!' },
+    ],
+};
 
-        // রিয়েল Google Places API Call (ফাইভ-স্টার রেটিং এবং রিভিউয়ের জন্য)
-        const googleApiUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,rating,reviews,user_ratings_total&key=${apiKey}`;
-        const response = await fetch(googleApiUrl);
-        const data = await response.json();
+/**
+ * GET /reputation/send-review-request?placeId=…   (alias: GET /api/google-reviews)
+ * Live Google rating with a graceful fallback so a landing page never breaks if the upstream is down.
+ */
+async function GETHandler(request: Request) {
+    const { searchParams } = new URL(request.url);
+    const requested = searchParams.get('placeId');
 
-        if (data.status !== 'OK') {
-            return NextResponse.json(
-                { success: false, error: 'Failed to fetch live 5-star data from Google Maps.' },
-                { status: 502 }
-            );
-        }
-
-        return NextResponse.json({
-            success: true,
-            source: 'google-maps-live',
-            data: {
-                name: data.result.name,
-                rating: data.result.rating || 5.0,
-                totalReviews: data.result.user_ratings_total || 0,
-                reviews: data.result.reviews || []
-            }
-        });
-
-    } catch (error) {
-        console.error('[Google Maps Reputation Error]:', error);
-        
-        return NextResponse.json(
-            { 
-                success: false, 
-                error: 'Internal server error while fetching 5-star reviews.' 
-            },
-            { status: 500 }
-        );
+    let placeId: string | undefined = env.googlePlaceId();
+    if (requested) {
+        const parsed = placeIdSchema.safeParse(requested);
+        if (!parsed.success) throw new ApiError('Invalid placeId.', 400, zodDetails(parsed.error));
+        placeId = parsed.data;
     }
+
+    const apiKey = env.googlePlacesKey();
+    const cache = { 'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=3600' };
+
+    if (!apiKey || !placeId) {
+        return ok(FALLBACK, { headers: cache, legacy: { source: 'fallback' } });
+    }
+
+    const url = new URL('https://maps.googleapis.com/maps/api/place/details/json');
+    url.searchParams.set('place_id', placeId);
+    url.searchParams.set('fields', 'name,rating,reviews,user_ratings_total');
+    url.searchParams.set('key', apiKey);
+
+    let data: any;
+    try {
+        const response = await fetchWithTimeout(url, {}, 6_000);
+        data = await response.json();
+    } catch (error) {
+        logger.error('reviews.upstream_failed', error);
+        throw new ApiError('Failed to fetch live review data from Google Maps.', 502);
+    }
+
+    if (data?.status !== 'OK') {
+        logger.warn('reviews.upstream_status', { status: data?.status });
+        throw new ApiError('Failed to fetch live review data from Google Maps.', 502);
+    }
+
+    const payload = {
+        name: data.result.name,
+        rating: data.result.rating || 5.0,
+        totalReviews: data.result.user_ratings_total || 0,
+        reviews: data.result.reviews || [],
+    };
+    return ok(payload, { headers: cache, legacy: { source: 'google-maps-live' } });
 }
+
+export const GET = withApi(GETHandler);

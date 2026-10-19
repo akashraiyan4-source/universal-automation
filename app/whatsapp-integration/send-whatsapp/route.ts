@@ -1,3 +1,4 @@
+import { withApi } from '@/src/lib/api';
 import { NextResponse } from 'next/server';
 import { whatsappLogs } from '@/app/api/db';
 
@@ -13,7 +14,7 @@ interface WhatsappRequestBody {
     apiKey?: string;
 }
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
     try {
         let body: WhatsappRequestBody;
         try {
@@ -88,3 +89,5 @@ export async function POST(request: Request) {
         );
     }
 }
+
+export const POST = withApi(POSTHandler);

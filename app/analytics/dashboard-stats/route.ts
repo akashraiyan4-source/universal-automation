@@ -1,3 +1,4 @@
+import { withApi } from '@/src/lib/api';
 import { NextResponse } from 'next/server';
 
 // SaaS-grade TypeScript Interface for Universal Analytics Data
@@ -12,7 +13,7 @@ interface DashboardStats {
     generatedAt: string;
 }
 
-export async function GET(request: Request) {
+async function GETHandler(request: Request) {
     try {
         // রিকোয়েস্টের ইউআরএল থেকে ডাইনামিক নিশ বা ব্রান্ড ফিল্টার নেওয়ার সুবিধা (ইউনিভার্সাল ফিচারের জন্য)
         const { searchParams } = new URL(request.url);
@@ -60,3 +61,5 @@ export async function GET(request: Request) {
         );
     }
 }
+
+export const GET = withApi(GETHandler);
