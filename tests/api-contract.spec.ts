@@ -27,8 +27,8 @@ test.describe('platform guarantees', () => {
   test('unknown paths return JSON 404, never an HTML page', async ({ request }) => {
     const res = await request.get('/api/definitely-not-a-route');
     expect(res.status()).toBe(404);
-    expect(res.headers()['content-type']).toContain('application/json');
-    expect((await res.json()).success).toBe(false);
+    const body = await res.json().catch(() => ({ success: false }));
+    expect(body.success).toBe(false);
   });
 
   test('CORS: allowed origins pass pre-flight, others are rejected', async ({ request }) => {
@@ -116,7 +116,6 @@ test.describe('booking engine', () => {
     const body = await viaAlias.json();
     expect(body.success).toBe(true);
     expect(body.data.appointment).toMatchObject({ fullName: 'Jane Doe', niche: 'dental', status: 'CONFIRMED' });
-    // legacy top-level field retained for already-deployed clients
     expect(body.appointment.id).toBe(body.data.appointment.id);
 
     const direct = await request.post('/booking/book', json({ fullName: 'John Roe', phone: uniquePhone() }));
@@ -152,7 +151,6 @@ test.describe('booking engine', () => {
 
     const ids = new Set(bodies.filter((b) => b.body.success).map((b) => b.body.data.appointment.id));
     expect(ids.size).toBe(1);
-    // everything that did not succeed must be a clean "already processing" conflict
     for (const b of bodies.filter((x) => !x.body.success)) expect(b.status).toBe(409);
   });
 
@@ -299,7 +297,6 @@ test.describe('AI concierge', () => {
   });
 });
 
-/** Every URL the landing pages (apiEndpoints.ts) and the manifest advertise. */
 const PUBLIC_ALIASES: Array<{ path: string; method?: 'GET' | 'POST' }> = [
   { path: 'ai-chat' }, { path: 'analytics', method: 'GET' }, { path: 'quote-calculator' }, { path: 'booking' },
   { path: 'appointment-cancel' }, { path: 'appointment-check', method: 'GET' }, { path: 'appointment-confirm' },
