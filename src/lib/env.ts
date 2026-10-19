@@ -67,6 +67,24 @@ export const env = {
       .map((k) => (typeof k === 'string' ? k.trim() : ''))
       .filter((k) => k && !PLACEHOLDER.test(k)),
   geminiModel: (): string => read('GEMINI_MODEL') ?? 'gemini-2.5-flash',
+
+  // ── AI concierge (/api/ai-chat) ────────────────────────────────────────────
+  /** Sampling temperature, clamped to 0–1. Low = factual & consistent (default 0.4). */
+  chatTemperature: (): number => {
+    const parsed = Number.parseFloat(process.env.AI_CHAT_TEMPERATURE ?? '');
+    return Number.isFinite(parsed) ? Math.min(1, Math.max(0, parsed)) : 0.4;
+  },
+  /** Total time budget for one chat reply across all providers/keys (keep under the serverless limit). */
+  chatBudgetMs: (): number => readInt('AI_CHAT_BUDGET_MS', 8_500, 2_000, 25_000),
+  /** Cache opener replies for card clicks (seconds). 0 disables. */
+  chatOpenerCacheSeconds: (): number => readInt('AI_CHAT_OPENER_CACHE_SECONDS', 900, 0, 86_400),
+  /** Let the landing page send `businessContext`. Set false to force server-side (env/built-in) knowledge only. */
+  allowClientBusinessContext: (): boolean => readBool('AI_ALLOW_CLIENT_BUSINESS_CONTEXT', true),
+  /** Raw JSON from `<NICHE>_BUSINESS_CONTEXT` (e.g. SOLAR_BUSINESS_CONTEXT). Read verbatim: JSON may legitimately contain URLs. */
+  businessContextJson: (niche: string): string | undefined => {
+    const raw = process.env[`${niche.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}_BUSINESS_CONTEXT`]?.trim();
+    return raw || undefined;
+  },
   twilioAccountSid: (): string | undefined => read('TWILIO_ACCOUNT_SID'),
   twilioAuthToken: (): string | undefined => read('TWILIO_AUTH_TOKEN'),
   twilioPhone: (): string | undefined => read('TWILIO_PHONE_NUMBER'),

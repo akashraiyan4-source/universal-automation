@@ -6,7 +6,8 @@ import { env } from '../lib/env';
  * Thin, lazy wrapper around the Gemini SDK.
  *  - No client is constructed at import time (a missing key can never crash a cold start).
  *  - Supports key rotation: every configured key is tried in turn.
- *  - Hard timeout per attempt so a hung upstream cannot pin the function.
+ *  - Hard timeout per attempt AND an optional total budget, so a hung upstream can never pin the function.
+ *  - Fast mode: "thinking" is disabled on Gemini 2.5 Flash for low-latency conversational replies.
  */
 
 export interface ChatTurn {
@@ -20,7 +21,12 @@ interface GenerateOptions {
   message: string;
   maxOutputTokens?: number;
   temperature?: number;
+  /** Timeout for a single upstream attempt. */
   timeoutMs?: number;
+  /** Stop trying further keys once this much time has been spent in total. */
+  totalBudgetMs?: number;
+  /** Skip model "thinking" for speed (only applied to models that support disabling it). */
+  fast?: boolean;
 }
 
 const clients = new Map<string, GoogleGenAI>();
@@ -49,25 +55,35 @@ function buildContents(history: ChatTurn[], message: string) {
   return turns.map((turn) => ({ role: turn.role, parts: [{ text: turn.text }] }));
 }
 
+/** Only Gemini 2.5 Flash(-Lite) accepts `thinkingBudget: 0`; other models would reject the request. */
+const supportsThinkingOff = (model: string): boolean => /^gemini-2\.5-flash/i.test(model);
+
 /** Returns the model reply, or throws if every key/attempt failed. */
 export async function generateReply(options: GenerateOptions): Promise<string> {
   const keys = env.geminiKeys();
   if (keys.length === 0) throw new Error('AI provider is not configured');
 
+  const startedAt = Date.now();
+  const model = env.geminiModel();
+  const perAttemptMs = options.timeoutMs ?? 12_000;
+
   let lastError: unknown;
   for (const key of keys) {
+    const remaining = options.totalBudgetMs ? options.totalBudgetMs - (Date.now() - startedAt) : perAttemptMs;
+    if (remaining < 800) break; // not enough time left for a meaningful attempt
     try {
       const response = await withTimeout(
         clientFor(key).models.generateContent({
-          model: env.geminiModel(),
+          model,
           contents: buildContents(options.history ?? [], options.message),
           config: {
             systemInstruction: options.systemInstruction,
             maxOutputTokens: options.maxOutputTokens ?? 300,
             temperature: options.temperature ?? 0.7,
+            ...(options.fast && supportsThinkingOff(model) ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
           },
         }),
-        options.timeoutMs ?? 12_000,
+        Math.min(perAttemptMs, remaining),
         'Gemini request'
       );
       const text = response.text?.trim();
