@@ -70,7 +70,7 @@ export function buildSystemInstruction(profile: BusinessProfile, topic?: TopicCo
   const focused = topic ? matchService(profile, `${topic.topic} ${topic.description ?? ''}`) : undefined;
 
   const topicSection = topic
-    ? `\nCURRENT CLIENT FOCUS\nThe client is exploring: "${cleanText(topic.topic, 120)}"${
+    ? `\nCURRENT FOCUS\nThe client is exploring: "${cleanText(topic.topic, 120)}"${
         topic.description ? ` - ${cleanText(topic.description, 300)}` : ''
       }.` +
       (focused ? `\nRelevant specification: ${focused.name} — ${focused.summary}` : '') +
