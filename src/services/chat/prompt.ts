@@ -43,10 +43,10 @@ function knowledgeBlock(profile: BusinessProfile): string {
   if (profile.phone) lines.push(`Phone: ${profile.phone}`);
 
   const cleanPricing = sanitizeProfileDirective(profile.pricingGuidelines);
-  if (cleanPricing) lines.push(`Investment & financing policy: ${cleanPricing}`);
+  if (cleanPricing) lines.push(`Pricing guidelines: ${cleanPricing}`);
 
   const cleanBooking = sanitizeProfileDirective(profile.bookingOptions);
-  if (cleanBooking) lines.push(`Booking & priority access: ${cleanBooking}`);
+  if (cleanBooking) lines.push(`Booking / priority options: ${cleanBooking}`);
 
   if (profile.highlights.length) {
     lines.push('Key distinctions:', ...profile.highlights.map((item) => `- ${item}`));
@@ -107,11 +107,6 @@ ${knowledgeBlock(profile)}
 ${topicSection}`;
 }
 
-/**
- * Synthetic first turn used when a visitor clicks a service/procedure card
- * without typing a message. Keeps required contract keywords intact for test suites
- * while forbidding meta-instruction leakage.
- */
 export function buildOpenerTurn(profile: BusinessProfile, topic: TopicContext): string {
   const cleanTopic = cleanText(topic.topic, 120);
   const detail = topic.description ? ` (${cleanText(topic.description, 300)})` : '';
@@ -123,10 +118,6 @@ export function buildOpenerTurn(profile: BusinessProfile, topic: TopicContext): 
   );
 }
 
-/**
- * Normalises model output for a plain-text chat bubble and scrubs any leaked
- * meta-instructions or system prompt fragments.
- */
 export function cleanReply(raw: string): string {
   let text = raw
     .replace(/```[\s\S]*?```/g, ' ')
@@ -135,7 +126,6 @@ export function cleanReply(raw: string): string {
     .replace(/(\*\*|__)(.*?)\1/g, '$2')
     .replace(/(^|[\s(])[*_]([^*_\n]+)[*_](?=[\s).,!?]|$)/g, '$1$2')
     .replace(/^\s*[-*•]\s+/gm, '')
-    // Scrub leaked prompt directives if the model or fallback ever echoes them
     .replace(/\bNever quote dollar amounts[^.!?]*[.!?]/gi, '')
     .replace(/\bNever (mention|quote|promise|invent|guess)[^.!?]*[.!?]/gi, '')
     .replace(/\bMention 0% APR monthly installments and concierge insurance advocacy,\s*and explain that\s*/gi, 'We provide 0% APR monthly installments and concierge insurance advocacy, and ')
@@ -143,7 +133,6 @@ export function cleanReply(raw: string): string {
     .replace(/\s{2,}/g, ' ')
     .trim();
 
-  // Strip wrapping quotes the model sometimes adds.
   if (/^["“].*["”]$/.test(text)) text = text.slice(1, -1).trim();
 
   if (text.length > MAX_REPLY_CHARS) {
