@@ -5,7 +5,7 @@ import { z } from 'zod';
  *
  * Layers (later wins, arrays are replaced rather than merged):
  *   1. generic skeleton derived from `niche`
- *   2. built-in profile for niches we ship a landing page for (currently: dental)
+ *   2. built-in profile for niches we ship a landing page for (currently: dental, cosmetics)
  *   3. server-side override: env `<NICHE>_BUSINESS_CONTEXT` (JSON), e.g. SOLAR_BUSINESS_CONTEXT, REAL_ESTATE_BUSINESS_CONTEXT
  *   4. per-request `businessContext` sent by the landing page (can be disabled with AI_ALLOW_CLIENT_BUSINESS_CONTEXT=false)
  *   5. legacy per-request `brandName` / `expertName`
@@ -84,10 +84,6 @@ export function cleanText(value: string | undefined, max: number): string {
 
 // ── Built-in profiles ────────────────────────────────────────────────────────
 
-/**
- * Facts below are taken from the SmileWay Studio landing page. Hours are an editable default –
- * override with DENTAL_BUSINESS_CONTEXT or `businessContext.hours`.
- */
 const DENTAL_PROFILE: Omit<BusinessProfile, 'niche'> = {
   brandName: 'SmileWay Studio',
   expertName: 'Dr. Julian Vance',
@@ -183,6 +179,39 @@ const DENTAL_PROFILE: Omit<BusinessProfile, 'niche'> = {
   ],
 };
 
+const COSMETICS_PROFILE: Omit<BusinessProfile, 'niche'> = {
+  brandName: 'Aura Beverly Hills',
+  expertName: 'Dr. Sarah Sterling',
+  expertTitle: 'Chief Aesthetic Plastic Surgeon (MD)',
+  industry: 'luxury cosmetic surgery & medical aesthetics',
+  tagline: 'Bespoke surgical artistry and facial architecture in Beverly Hills',
+  location: '9200 Wilshire Blvd, Beverly Hills, CA 90210',
+  phone: '(555) 489-3200',
+  hours: 'Monday to Saturday 9:00 AM to 7:00 PM',
+  pricingGuidelines:
+    'Every aesthetic plan is fully custom, so exact investment figures are confirmed after a private evaluation. We offer confidential financing options and VIP concierge recovery support.',
+  bookingOptions:
+    'Confidential consultations can be secured instantly through the intake form on this page or by contacting our patient coordinator directly.',
+  tone: 'discreet, cultured, reassuring and elite, like a private medical concierge',
+  highlights: [
+    'Board-certified specialists with over 20 years of Beverly Hills expertise',
+    '100% private surgical suites with dedicated discreet rear valet access',
+    'Bespoke 3D simulation and customized recovery protocols',
+  ],
+  services: [
+    {
+      name: 'Facial Rejuvenation & Facelift',
+      summary: 'Advanced structural architectural facelifts designed to restore natural harmony with minimal downtime.',
+      keywords: ['facelift', 'facial rejuvenation', 'aging', 'wrinkles', 'skin tightening'],
+    },
+    {
+      name: 'Combined Multi-Stage Harmony',
+      summary: 'Simultaneous multi-procedure surgical sessions coordinated under advanced safe anesthesia for optimal recovery.',
+      keywords: ['combined', 'multi-stage', 'harmony', 'surgery', 'abdominoplasty', 'breast contouring'],
+    },
+  ],
+};
+
 function genericProfile(niche: string): Omit<BusinessProfile, 'niche'> {
   const industry = niche === 'general' ? 'professional services' : niche.replace(/-/g, ' ');
   return {
@@ -201,6 +230,7 @@ function genericProfile(niche: string): Omit<BusinessProfile, 'niche'> {
 
 const BUILT_IN: Record<string, Omit<BusinessProfile, 'niche'>> = {
   dental: DENTAL_PROFILE,
+  cosmetics: COSMETICS_PROFILE,
 };
 
 // ── Resolution ───────────────────────────────────────────────────────────────
