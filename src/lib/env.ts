@@ -40,8 +40,12 @@ export const isTest = (): boolean => process.env.NODE_ENV === 'test';
 
 export const env = {
   // ── Security / CORS ────────────────────────────────────────────────────────
-  /** Exact origins or `https://*.example.com` patterns, comma separated. */
-  allowedOrigins: (): string[] => [...readList('ALLOWED_ORIGINS'), ...readList('ALLOWED_ORIGIN')].filter((o) => o !== '*'),
+  /** Universal allowed origins - defaults to wildcard or explicit lists. */
+  allowedOrigins: (): string[] => {
+    const list = [...readList('ALLOWED_ORIGINS'), ...readList('ALLOWED_ORIGIN')];
+    if (list.length === 0) return ['*'];
+    return list;
+  },
   /** Localhost/127.0.0.1 are always allowed unless explicitly disabled. */
   allowLocalhost: (): boolean => readBool('ALLOW_LOCALHOST_ORIGINS', true),
 
@@ -97,15 +101,4 @@ export const env = {
 };
 
 /** Safe-to-expose configuration summary (booleans only, never values). */
-export function describeConfig() {
-  return {
-    cors: {
-      explicitOrigins: env.allowedOrigins().length,
-      localhostAllowed: env.allowLocalhost(),
-    },
-    rateLimiter: env.upstashUrl() && env.upstashToken() ? 'redis' : 'memory',
-    ai: env.geminiKeys().length > 0,
-    sms: Boolean(env.twilioAccountSid() && env.twilioAuthToken() && env.twilioPhone()),
-    database: Boolean(env.supabaseUrl() && env.supabaseKey()),
-  };
-}
+export function describe
