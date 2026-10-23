@@ -1,584 +1,474 @@
 import { z } from 'zod';
 
 /**
- * Universal Multi-Niche Business Profile Engine
+ * Business knowledge for the AI concierge.
  *
- * Supports Luxury Dental, Cosmetic Surgery / Medical Aesthetics (Aura Beverly Hills),
- * Luxury Real Estate, Architectural Roofing, and Bespoke Solar.
- * Includes Zod schema validation (`businessContextSchema`), fuzzy niche resolution,
- * and dynamic payload merging so no landing page ever fails profile lookup.
+ * Layers (later wins, arrays are replaced rather than merged):
+ *   1. generic skeleton derived from `niche`
+ *   2. built-in profile for niches we ship a landing page for (dental, cosmetics, real-estate, roofing, solar)
+ *   3. server-side override: env `<NICHE>_BUSINESS_CONTEXT` (JSON), e.g. SOLAR_BUSINESS_CONTEXT, REAL_ESTATE_BUSINESS_CONTEXT
+ *   4. per-request `businessContext` sent by the landing page (can be disabled with AI_ALLOW_CLIENT_BUSINESS_CONTEXT=false)
+ *   5. legacy per-request `brandName` / `expertName`
+ *
+ * => a new landing page (solar, roofing, medspa, real estate …) needs no backend code: only a `niche` and either
+ *    an env JSON or a `businessContext` object in the payload.
  */
 
-export interface ServiceSpec {
+const text = (max: number) => z.string().trim().max(max);
+
+const serviceSchema = z.object({
+  name: text(100).min(1),
+  summary: text(500).optional(),
+  price: text(100).optional(),
+  keywords: z.array(text(40)).max(12).optional(),
+});
+
+export const businessContextObjectSchema = z.object({
+  brandName: text(80).optional(),
+  businessName: text(80).optional(),
+  expertName: text(80).optional(),
+  expertTitle: text(80).optional(),
+  industry: text(80).optional(),
+  tagline: text(200).optional(),
+  location: text(200).optional(),
+  address: text(200).optional(),
+  phone: text(40).optional(),
+  hours: text(240).optional(),
+  workingHours: text(240).optional(),
+  pricingGuidelines: text(700).optional(),
+  pricing: text(700).optional(),
+  bookingOptions: text(500).optional(),
+  tone: text(200).optional(),
+  notes: text(1500).optional(),
+  highlights: z.array(text(260)).max(12).optional(),
+  services: z.array(serviceSchema).max(16).optional(),
+});
+
+/** Accepts either a structured object or a free-text description of the business. */
+export const businessContextSchema = z.union([
+  text(1500).transform((notes) => ({ notes })),
+  businessContextObjectSchema,
+]);
+
+export type BusinessContextInput = z.infer<typeof businessContextObjectSchema>;
+
+export interface ServiceInfo {
   name: string;
   summary: string;
   price?: string;
-  keywords?: string[];
+  keywords: string[];
 }
 
 export interface BusinessProfile {
   niche: string;
   brandName: string;
-  industry: string;
   expertName: string;
-  expertTitle?: string;
+  expertTitle: string;
+  industry: string;
   tagline?: string;
   location?: string;
-  hours?: string;
   phone?: string;
-  tone: string;
+  hours?: string;
   pricingGuidelines: string;
   bookingOptions: string;
-  highlights: string[];
-  services: ServiceSpec[];
+  tone: string;
   notes?: string;
+  highlights: string[];
+  services: ServiceInfo[];
 }
 
-const serviceItemSchema = z.union([
-  z.string(),
-  z
-    .object({
-      name: z.string().optional(),
-      title: z.string().optional(),
-      summary: z.string().optional(),
-      description: z.string().optional(),
-      price: z.string().optional(),
-      keywords: z.array(z.string()).optional(),
-    })
-    .passthrough(),
-]);
-
-/**
- * Permissive Zod schema for incoming `businessContext` / `profile` payloads from any landing page.
- */
-export const businessContextSchema = z
-  .object({
-    niche: z.string().optional(),
-    brandName: z.string().optional(),
-    businessName: z.string().optional(),
-    name: z.string().optional(),
-    industry: z.string().optional(),
-    expertName: z.string().optional(),
-    doctorName: z.string().optional(),
-    leadExpert: z.string().optional(),
-    expertTitle: z.string().optional(),
-    tagline: z.string().optional(),
-    positioning: z.string().optional(),
-    location: z.string().optional(),
-    address: z.string().optional(),
-    hours: z.string().optional(),
-    workingHours: z.string().optional(),
-    phone: z.string().optional(),
-    tone: z.string().optional(),
-    pricingGuidelines: z.string().optional(),
-    pricingPolicy: z.string().optional(),
-    bookingOptions: z.string().optional(),
-    highlights: z.array(z.string()).optional(),
-    services: z.array(serviceItemSchema).optional(),
-    notes: z.string().optional(),
-  })
-  .passthrough();
-
-export type BusinessContextInput = z.infer<typeof businessContextSchema>;
-
-/**
- * Safely truncates and normalizes plain text inputs.
- */
-export function cleanText(input: unknown, maxLength = 300): string {
-  if (typeof input !== 'string') return '';
-  const cleaned = input
-    .replace(/<\/?[a-zA-Z_][\w-]*>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  if (cleaned.length <= maxLength) return cleaned;
-  return `${cleaned.slice(0, maxLength).trimEnd()}…`;
+/** Remove characters that could break out of the prompt template and collapse whitespace. */
+export function cleanText(value: string | undefined, max: number): string {
+  return (value ?? '').replace(/["`\\{}<>]/g, ' ').replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
 }
 
-/**
- * Built-in flagship profiles for all 5 core niches.
- */
-export const DEFAULT_PROFILES: Record<string, BusinessProfile> = {
-  dental: {
-    niche: 'dental',
-    brandName: 'SmileWay Studio',
-    industry: 'Beverly Hills Cosmetic & Restorative Dentistry',
-    expertName: 'Dr. Julian Vance',
-    expertTitle: 'DDS',
-    tagline: 'Bespoke porcelain artistry and structural smile architecture in Beverly Hills.',
-    location: '9400 Wilshire Blvd, Beverly Hills, CA 90212',
-    hours: 'Monday to Friday 8:00 AM to 6:00 PM, Saturday by priority appointment',
-    phone: '(310) 555-0192',
-    tone: 'Warm, prestigious, reassuring, and clinically authoritative',
-    pricingGuidelines:
-      'Every smile plan is fully custom, so exact fees are confirmed after the 3D digital smile scan during a private consultation. We offer transparent 0% APR monthly installments and concierge insurance advocacy.',
-    bookingOptions:
-      'Private one-on-one consultations, priority Saturday allocations, and virtual pre-assessments for international clients.',
-    highlights: [
-      'Rated 4.9 by 380+ verified Beverly Hills patients',
-      'AACD accredited, ADA member, Top Doctor 2026, Invisalign Diamond provider',
-      'Hand-layered ultra-thin porcelain veneers crafted with master ceramists',
-      'Private recovery suites and sedation comfort protocols',
-    ],
-    services: [
-      {
-        name: 'Bespoke Porcelain Veneers',
-        summary:
-          'Ultra-thin, hand-feathered porcelain restorations engineered for natural translucency without aggressive tooth reduction.',
-        keywords: ['veneer', 'veneers', 'porcelain', 'smile makeover', 'hollywood smile', 'cosmetic'],
-      },
-      {
-        name: '3D Guided Dental Implants',
-        summary:
-          'Biocompatible titanium and zirconia implants placed with sub-millimeter 3D CBCT digital guidance for permanent structural harmony.',
-        keywords: ['implant', 'implants', 'missing tooth', 'crown', 'bridge', 'full arch', 'all-on-4'],
-      },
-      {
-        name: 'Invisalign Diamond Orthodontics',
-        summary:
-          'Accelerated, discreet clear aligner therapy digitally mapped by a Diamond-tier provider.',
-        keywords: ['invisalign', 'aligners', 'straighten', 'braces', 'orthodontics', 'bite'],
-      },
-      {
-        name: 'Laser Enamel Rejuvenation & Whitening',
-        summary:
-          'Zero-sensitivity clinical whitening protocol that lifts multiple shades in a single private suite visit.',
-        keywords: ['whitening', 'bleaching', 'brightening', 'stain', 'clean', 'cleaning', 'laser'],
-      },
-      {
-        name: 'Priority Emergency & Sedation Care',
-        summary:
-          'Same-day discreet trauma stabilization, painless surgical extraction, and twilight sedation dentistry.',
-        keywords: ['emergency', 'pain', 'extraction', 'root canal', 'sedation', 'broken', 'urgent'],
-      },
-    ],
-    notes: 'Every patient receives a digital 3D smile simulation before any clinical work begins.',
-  },
+// ── Built-in profiles ────────────────────────────────────────────────────────
 
-  cosmetics: {
-    niche: 'cosmetics',
-    brandName: 'Aura Beverly Hills',
-    industry: 'Ultra-Luxury Facial Plastic Surgery & Medical Aesthetics',
-    expertName: 'Dr. Sarah Alvi',
-    expertTitle: 'MD, FACS',
-    tagline:
-      'Master-level surgical artistry, bespoke anatomical mapping, and undetectable facial rejuvenation.',
-    location: '436 N Bedford Dr, Penthouse Suite, Beverly Hills, CA 90210',
-    hours: 'Monday to Friday 9:00 AM to 6:00 PM, Saturday by private VIP arrangement',
-    phone: '(310) 555-0840',
-    tone: 'Ultra-discreet, refined, serene, and artistically authoritative',
-    pricingGuidelines:
-      'Every bespoke rejuvenation plan is custom-designed following a detailed 3D anatomical evaluation, so exact investment figures are confirmed during a private consultation. We offer flexible executive financing options and comprehensive concierge coordination.',
-    bookingOptions:
-      'Discreet private suite consultations, subterranean valet arrival, and virtual executive evaluations for out-of-state and international clients.',
-    highlights: [
-      'Double board-certified facial plastic and reconstructive surgeon',
-      'Ultra-private subterranean arrival and accredited luxury surgical suites',
-      'Bespoke 3D anatomical vector mapping for natural, undetectable results',
-      '24/7 post-operative private nursing and hyperbaric recovery concierge',
-    ],
-    services: [
-      {
-        name: 'Deep Plane Facial Rejuvenation (Facelift)',
-        summary:
-          'Advanced structural deep-plane repositioning that restores youthful ligament tension and jawline contour with zero surface tension or windblown appearance.',
-        keywords: [
-          'facelift',
-          'face lift',
-          'deep plane',
-          'neck lift',
-          'sagging',
-          'jawline',
-          'jowls',
-          'rejuvenation',
-          'aging',
-          'different',
-          'procedures',
-        ],
-      },
-      {
-        name: 'Preservation Ultrasonic Rhinoplasty',
-        summary:
-          'Piezo-ultrasonic structural nasal refinement that preserves dorsal integrity, refines breathing, and minimizes bruising and downtime.',
-        keywords: ['rhinoplasty', 'nose job', 'nose', 'nasal', 'septoplasty', 'revision', 'breathing'],
-      },
-      {
-        name: 'Micro-Droplet Blepharoplasty & Brow Contouring',
-        summary:
-          'Precision upper and lower eyelid revitalization paired with micro-fat grafting to erase hollowness and restore rested periorbital luminosity.',
-        keywords: [
-          'blepharoplasty',
-          'eyelid',
-          'eye',
-          'eyes',
-          'under eye',
-          'bags',
-          'brow',
-          'brow lift',
-          'hollow',
-        ],
-      },
-      {
-        name: 'Non-Surgical Structural Liquid Lift & Biostimulators',
-        summary:
-          'Precision dermal fillers, sculptural biostimulators, and medical-grade laser resurfacing tailored to restore youthful volume without surgery.',
-        keywords: [
-          'filler',
-          'fillers',
-          'botox',
-          'non-surgical',
-          'nonsurgical',
-          'injectables',
-          'lips',
-          'skin',
-          'laser',
-          'volume',
-        ],
-      },
-      {
-        name: 'Accelerated VIP Recovery & Hyperbaric Protocol',
-        summary:
-          'Dedicated post-operative concierge care featuring lymphatic therapy, LED cellular regeneration, and private nursing so most clients return to social engagements within two to three weeks.',
-        keywords: [
-          'recovery',
-          'downtime',
-          'healing',
-          'aftercare',
-          'bruising',
-          'swelling',
-          'pain',
-          'process',
-          'timeline',
-        ],
-      },
-    ],
-    notes:
-      'Total patient privacy is guaranteed with NDA protection, private elevator access, and customized recovery timelines aligned with major social or media events.',
-  },
-
-  'real-estate': {
-    niche: 'real-estate',
-    brandName: 'Vanguard Estates Beverly Hills',
-    industry: 'Ultra-Prime Luxury Real Estate & Off-Market Advisory',
-    expertName: 'Marcus Sterling',
-    expertTitle: 'Managing Partner, DRE# 01984210',
-    tagline: 'Private access to off-market architectural estates across the Platinum Triangle.',
-    location: '301 N Canon Dr, Beverly Hills, CA 90210',
-    hours: 'Seven days a week by private appointment',
-    phone: '(310) 555-0911',
-    tone: 'Sophisticated, analytical, discreet, and market-commanding',
-    pricingGuidelines:
-      'Comprehensive property valuations, off-market acquisition briefs, and comparative yield analyses are prepared confidentially following a private portfolio review.',
-    bookingOptions:
-      'Private dossier briefings, helicopter or chauffeured estate tours, and confidential seller valuation consultations.',
-    highlights: [
-      '$2.4B+ in closed architectural and trophy estate transactions',
-      'Direct access to pocket listings in Beverly Hills, Bel-Air, and Holmby Hills',
-      'In-house wealth structuring, 1031 exchange, and family office advisory',
-    ],
-    services: [
-      {
-        name: 'Off-Market Pocket Listing Access',
-        summary:
-          'Curated acquisition of unadvertised trophy estates and architectural compounds before public market exposure.',
-        keywords: ['buy', 'buying', 'off-market', 'pocket listing', 'estate', 'home', 'mansion', 'property'],
-      },
-      {
-        name: 'Confidential Estate Valuation & Disposition',
-        summary:
-          'Data-driven property valuation and discreet global marketing to qualified ultra-high-net-worth buyers.',
-        keywords: ['sell', 'selling', 'valuation', 'worth', 'price', 'appraisal', 'market value', 'list'],
-      },
-      {
-        name: 'Investment ROI & Portfolio Structuring',
-        summary:
-          'Comprehensive cap-rate modeling, mortgage structuring, and luxury development feasibility analysis.',
-        keywords: ['investment', 'roi', 'mortgage', 'calculator', 'yield', 'tax', 'portfolio'],
-      },
-    ],
-  },
-
-  roofing: {
-    niche: 'roofing',
-    brandName: 'Apex Architectural Roofing & Restoration',
-    industry: 'Luxury Estate Roofing & Storm Restoration Engineering',
-    expertName: 'Harrison Cole',
-    expertTitle: 'Principal Structural Director',
-    tagline:
-      'Master-grade slate, copper, and storm-resilient roofing systems engineered for generational durability.',
-    location: '9100 Wilshire Blvd, Suite 400, Beverly Hills, CA 90212',
-    hours: 'Monday to Saturday 7:00 AM to 7:00 PM, 24/7 Emergency Storm Response',
-    phone: '(310) 555-0344',
-    tone: 'Authoritative, engineering-focused, dependable, and executive',
-    pricingGuidelines:
-      'Exact project investments are confirmed following a drone thermal inspection and structural load assessment. We provide full insurance claim advocacy and flexible financing.',
-    bookingOptions:
-      'Complimentary drone structural inspection, storm damage audit, and private architectural material consultation.',
-    highlights: [
-      'Lifetime structural workmanship warranty on slate, clay tile, and standing-seam metal',
-      'Drone thermal imaging and historical storm impact verification',
-      'White-glove insurance claim engineering and zero-disruption site management',
-    ],
-    services: [
-      {
-        name: 'Architectural Slate, Tile & Copper Systems',
-        summary:
-          'Custom-fabricated European slate, Spanish clay, and standing-seam metal roofs built for Class-4 impact and fire resistance.',
-        keywords: ['replace', 'replacement', 'new roof', 'slate', 'tile', 'metal', 'copper', 'architectural'],
-      },
-      {
-        name: 'Precision Storm Damage & Insurance Advocacy',
-        summary:
-          'Forensic hail and wind inspection paired with meteorological storm-history documentation to maximize insurance coverage.',
-        keywords: ['storm', 'hail', 'wind', 'damage', 'insurance', 'claim', 'leak', 'repair', 'emergency'],
-      },
-      {
-        name: 'Drone Thermal & Structural Audit',
-        summary:
-          'Non-invasive infrared moisture scanning to detect hidden underlayment vulnerabilities before interior damage occurs.',
-        keywords: ['inspection', 'drone', 'audit', 'estimate', 'cost', 'quote', 'check'],
-      },
-    ],
-  },
-
-  solar: {
-    niche: 'solar',
-    brandName: 'Helios Bespoke Solar & Microgrid',
-    industry: 'Architectural Solar Integration & Whole-Estate Battery Storage',
-    expertName: 'Elena Rostova',
-    expertTitle: 'Chief Energy Architect',
-    tagline:
-      'Zero-visibility architectural solar arrays and autonomous Tesla microgrids for luxury estates.',
-    location: '9665 Wilshire Blvd, Beverly Hills, CA 90212',
-    hours: 'Monday to Saturday 8:00 AM to 6:00 PM',
-    phone: '(310) 555-0778',
-    tone: 'Innovative, precision-engineered, consultative, and high-status',
-    pricingGuidelines:
-      'Every microgrid proposal is custom-modeled using lidar roof shading and 12-month utility telemetry, factoring in the 30% Federal ITC tax credit and concierge financing.',
-    bookingOptions:
-      'Custom satellite energy modeling session and on-site microgrid engineering assessment.',
-    highlights: [
-      'Flush-mounted all-black architectural panels and integrated solar roof tiles',
-      'Autonomous whole-home backup via multi-unit Tesla Powerwall 3 microgrids',
-      'Full 25-year production, hardware, and structural penetration guarantee',
-    ],
-    services: [
-      {
-        name: 'Architectural Solar Array & Integrated Tile',
-        summary:
-          'Aesthetically invisible high-efficiency monocrystalline arrays custom-mapped to preserve estate curb appeal.',
-        keywords: ['solar', 'panels', 'array', 'roof', 'install', 'installation', 'aesthetic', 'tile'],
-      },
-      {
-        name: 'Whole-Estate Battery Microgrid (Powerwall 3)',
-        summary:
-          'Seamless off-grid islanding that powers HVAC, pool systems, and EV chargers during utility blackouts.',
-        keywords: ['battery', 'storage', 'powerwall', 'backup', 'outage', 'blackout', 'microgrid', 'ev'],
-      },
-      {
-        name: 'Utility ROI & Federal Tax Credit Modeling',
-        summary:
-          'Precision financial modeling detailing utility bill elimination, NEM 3.0 optimization, and 30% federal tax credit capture.',
-        keywords: ['cost', 'price', 'roi', 'savings', 'bill', 'tax', 'credit', 'financing', 'quote', 'proposal'],
-      },
-    ],
-  },
+const DENTAL_PROFILE: Omit<BusinessProfile, 'niche'> = {
+  brandName: 'SmileWay Studio',
+  expertName: 'Dr. Julian Vance',
+  expertTitle: 'Chief Cosmetic Dentist (DDS)',
+  industry: 'luxury cosmetic & aesthetic dentistry',
+  tagline: 'Architectural smile design and porcelain art in Beverly Hills',
+  location: '9400 Wilshire Blvd, Beverly Hills, CA 90212',
+  phone: '(555) 234-7890',
+  hours: 'Monday to Friday 8:00 AM to 6:00 PM, Saturday by priority appointment',
+  pricingGuidelines:
+    'Every smile plan is fully custom, so exact fees are confirmed after the digital smile scan during a consultation. ' +
+    'Never quote dollar amounts that are not listed in this knowledge. Mention 0% APR monthly installments and concierge insurance ' +
+    'advocacy, and explain that a Priority Smile Triage consultation is the fastest way to get an exact figure.',
+  bookingOptions:
+    'Priority Smile Triage consultation with Dr. Julian Vance (a limited number of priority slots are released each week). ' +
+    'Visitors can book with the form on this page, pick a date and time right here in the chat, or call (555) 234-7890.',
+  tone: 'warm, refined, reassuring and concise, like a five-star concierge',
+  highlights: [
+    'Rated 4.9 by 380+ verified Beverly Hills patients',
+    'AACD accredited, ADA member, Top Doctor 2026, Invisalign Diamond provider',
+    'Zero waiting rooms, private VIP suites, dedicated rear valet access',
+    'Every full-arch restoration and handcrafted porcelain set is backed by a 10-Year Structural Warranty',
+  ],
+  services: [
+    {
+      name: 'Zero-Prep Micro Veneers',
+      summary:
+        'Our bio-enamel micro-veneers are ultra-thin and need zero aggressive drilling or dentin reduction, so 100% of your natural tooth structure is preserved while the bond stays seamless and long-lasting.',
+      keywords: ['zero-prep', 'zero prep', 'micro veneer', 'micro-thin', 'micro thin', 'no drilling', 'shaving', 'reversible', 'bio-enamel', 'bio enamel', 'case #481'],
+    },
+    {
+      name: 'Handcrafted Porcelain Veneers',
+      summary:
+        'Each porcelain set is handcrafted on-site by our master ceramists for natural shade matching and a bespoke, camera-ready finish, with no outsourcing delays.',
+      keywords: ['porcelain', 'veneer', 'handcrafted', 'ceramic', 'shade', 'case #710', 'ceramic artistry', 'veneers patient'],
+    },
+    {
+      name: 'Micro-Enamel Bio-Seal',
+      summary: 'A protective bio-enamel finish that reinforces the surface of your teeth for a smooth, natural-looking and long-lasting shine.',
+      keywords: ['bio-seal', 'bio seal', 'micro-enamel', 'micro enamel', 'enamel'],
+    },
+    {
+      name: 'Full Arch Smile Alignment',
+      summary:
+        'A complete full-arch redesign that balances your bite and smile symmetry, planned digitally first and finished in handcrafted ceramic, backed by our 10-Year Structural Warranty.',
+      keywords: ['full arch', 'full-arch', 'alignment', 'symmetry', 'bite', 'case #512', 'case #825', 'harmony'],
+    },
+    {
+      name: 'Priority Smile Triage',
+      summary:
+        'A direct, senior-level cosmetic triage with Dr. Vance: we assess your goals, map your bite and outline your best options. Priority triage slots are limited each week, so early booking is recommended.',
+      keywords: ['priority', 'triage', 'same-day', 'same day', 'slot', 'consultation', 'dr. julian', 'dr julian', 'vance', 'doctor'],
+    },
+    {
+      name: '10-Year Structural Warranty',
+      summary:
+        'Every full-arch restoration and handcrafted porcelain set is backed by our comprehensive 10-Year Structural Warranty, covering chipping, fracture and bite alignment adjustments.',
+      keywords: ['warranty', 'guarantee', 'covered', 'coverage', 'chipping', 'fracture', 'structural'],
+    },
+    {
+      name: '48-Hour Digital Smile Preview',
+      summary:
+        'We use high-resolution 3D facial scanning and bite mapping to design your smile digitally, so you can preview and approve your exact result before any treatment starts.',
+      keywords: ['preview', '48', '3d', 'digital', 'scan', 'mockup', 'mock-up', 'step-by-step', 'step by step', 'workflow'],
+    },
+    {
+      name: 'VIP Sedation & Comfort Protocol',
+      summary:
+        'Built for anxiety-free, high-profile visits: bespoke IV sedation, NuCalm relaxation and fully private suites with zero waiting rooms and discreet rear valet access.',
+      keywords: ['sedation', 'comfort', 'pain', 'anxiety', 'anxious', 'nervous', 'scared', 'vip', 'private', 'privacy', 'clinic experience', 'nucalm', 'zero-pain', 'zero pain'],
+    },
+    {
+      name: 'Bespoke Financing & Investment',
+      summary: 'We offer transparent 0% APR monthly installments and concierge insurance advocacy, tailored to the scale of your smile investment.',
+      keywords: ['financing', 'finance', 'payment', 'installment', 'apr', 'insurance', 'invest', 'afford', 'monthly'],
+    },
+    {
+      name: 'In-House Master Atelier Lab',
+      summary:
+        'All porcelain art and micro-veneers are crafted on-site by our master ceramists, which guarantees absolute shade matching and avoids outsourcing delays.',
+      keywords: ['atelier', 'lab', 'ceramist', 'on-site', 'in-house'],
+    },
+    {
+      name: 'Accreditations & Memberships',
+      summary: 'Dr. Vance is AACD accredited, an ADA member, a Top Doctor 2026 honoree and an Invisalign Diamond provider.',
+      keywords: ['aacd', 'accredit', 'ada ', 'membership', 'member', 'credential', 'certified', 'diamond', 'invisalign', 'top doctor', 'recognition', 'award'],
+    },
+    {
+      name: 'Implants',
+      summary: 'Precision bio-implants with immediate-load options and a seamless gum blend, planned with the same 3D digital workflow.',
+      keywords: ['implant', 'case #604', 'immediate load', 'gum'],
+    },
+  ],
 };
 
-/**
- * Maps any incoming niche alias or keyword to one of the canonical profiles.
- */
-const NICHE_ALIASES: Record<string, keyof typeof DEFAULT_PROFILES> = {
-  // Dental aliases
-  dental: 'dental',
-  dentist: 'dental',
-  dentistry: 'dental',
-  orthodontics: 'dental',
-  smile: 'dental',
-  smileway: 'dental',
-
-  // Cosmetics / Medical Aesthetics aliases
-  cosmetics: 'cosmetics',
-  cosmetic: 'cosmetics',
-  'cosmetic-surgery': 'cosmetics',
-  'cosmetics-surgery': 'cosmetics',
-  'plastic-surgery': 'cosmetics',
-  aesthetics: 'cosmetics',
-  'medical-aesthetics': 'cosmetics',
-  medspa: 'cosmetics',
-  aura: 'cosmetics',
-  'aura-beverly-hills': 'cosmetics',
-  facelift: 'cosmetics',
-  beauty: 'cosmetics',
-
-  // Real Estate aliases
-  'real-estate': 'real-estate',
-  realestate: 'real-estate',
-  realtor: 'real-estate',
-  property: 'real-estate',
-  estates: 'real-estate',
-
-  // Roofing aliases
-  roofing: 'roofing',
-  roof: 'roofing',
-  roofer: 'roofing',
-  restoration: 'roofing',
-
-  // Solar aliases
-  solar: 'solar',
-  'solar-panel': 'solar',
-  'solar-panels': 'solar',
-  energy: 'solar',
-  microgrid: 'solar',
+const COSMETICS_PROFILE: Omit<BusinessProfile, 'niche'> = {
+  brandName: 'Aura Beverly Hills',
+  expertName: 'Dr. Sarah Sterling',
+  expertTitle: 'Chief Aesthetic Plastic Surgeon (MD, FACS)',
+  industry: 'luxury cosmetic surgery & medical aesthetics',
+  tagline: 'Bespoke surgical artistry, 3D anatomical mapping, and undetectable facial rejuvenation in Beverly Hills',
+  location: '9200 Wilshire Blvd, Beverly Hills, CA 90210',
+  phone: '(555) 489-3200',
+  hours: 'Monday to Saturday 9:00 AM to 7:00 PM',
+  pricingGuidelines:
+    'Every aesthetic rejuvenation plan is custom-designed after a private 3D anatomical evaluation, so exact investment figures are confirmed during a consultation. ' +
+    'We offer confidential 0% APR executive financing options and comprehensive VIP concierge coordination.',
+  bookingOptions:
+    'Private VIP consultations can be secured through the reservation form on this page, right here in the chat, or by calling our concierge desk at (555) 489-3200.',
+  tone: 'discreet, cultured, reassuring and elite, like a private Beverly Hills medical concierge',
+  highlights: [
+    'Double board-certified plastic surgery specialists with over 20 years of Beverly Hills expertise',
+    '100% private accredited surgical suites with dedicated discreet subterranean rear valet access',
+    'Bespoke 3D anatomical vector mapping for natural, undetectable transformations',
+    '24/7 post-operative private nursing, hyperbaric oxygen therapy, and lymphatic recovery protocols',
+  ],
+  services: [
+    {
+      name: 'Deep Plane Facial Rejuvenation & Facelift',
+      summary:
+        'Our signature structural deep-plane facelift repositions deeper facial tissues rather than pulling surface skin, restoring natural jawline definition and youthful volume with zero tension or windblown appearance.',
+      keywords: ['facelift', 'face lift', 'facial rejuvenation', 'deep plane', 'neck lift', 'aging', 'wrinkles', 'skin tightening', 'jawline', 'jowls', 'sagging'],
+    },
+    {
+      name: 'Micro-Precision Blepharoplasty & Brow Contouring',
+      summary:
+        'Delicate upper and lower eyelid rejuvenation paired with micro-fat restoration to eliminate tired under-eye hollows and restore a rested, luminous expression.',
+      keywords: ['blepharoplasty', 'eyelid', 'eye', 'eyes', 'under eye', 'bags', 'brow', 'brow lift', 'hollow'],
+    },
+    {
+      name: 'Ultrasonic Preservation Rhinoplasty',
+      summary:
+        'Piezo-ultrasonic nasal sculpting that refines bridge and tip harmony with millimeter precision while preserving structural breathing support and minimizing bruising.',
+      keywords: ['rhinoplasty', 'nose job', 'nose', 'nasal', 'septoplasty', 'breathing', 'profile'],
+    },
+    {
+      name: 'Non-Surgical Facial Rejuvenation & Precision Fillers',
+      summary:
+        'Bespoke non-surgical enhancements including structural dermal fillers, neuromodulators, collagen biostimulators, and laser skin revitalization for graceful volume restoration with zero downtime.',
+      keywords: ['non-surgical', 'nonsurgical', 'filler', 'fillers', 'botox', 'injectables', 'liquid facelift', 'lips', 'skin', 'laser'],
+    },
+    {
+      name: 'VIP Recovery Protocol & Post-Operative Care',
+      summary:
+        'Our accelerated recovery protocol combines hyperbaric oxygen, lymphatic drainage, and 24/7 private concierge nursing to minimize swelling so most clients return to social engagements within two to three weeks.',
+      keywords: ['recovery', 'downtime', 'healing', 'aftercare', 'process', 'timeline', 'swelling', 'bruising', 'pain', 'weeks'],
+    },
+    {
+      name: 'Combined Multi-Stage Harmony',
+      summary:
+        'Simultaneous multi-procedure surgical sessions coordinated under advanced total intravenous anesthesia for a single, seamless recovery window.',
+      keywords: ['combined', 'multi-stage', 'harmony', 'surgery', 'abdominoplasty', 'breast contouring', 'body', 'mommy makeover'],
+    },
+    {
+      name: 'Signature Distinction & Private Suites',
+      summary:
+        'Every transformation is guided by master-level surgical artistry, 3D anatomical simulation, NDA-protected privacy, and subterranean valet arrival with zero waiting rooms.',
+      keywords: ['different', 'unique', 'why choose', 'distinction', 'private', 'privacy', 'vip', 'suite', 'valet', 'experience'],
+    },
+    {
+      name: 'Confidential Financing & Concierge Investment',
+      summary:
+        'We provide tailored executive payment structures, 0% APR monthly financing plans, and all-inclusive surgical suite packages confirmed during your private evaluation.',
+      keywords: ['cost', 'price', 'pricing', 'how much', 'financing', 'finance', 'payment', 'invest', 'investment', 'fee', 'fees'],
+    },
+  ],
 };
 
-/**
- * Resolves a canonical niche key from any raw string, URL, or brand hint.
- */
-export function resolveNicheKey(rawNiche?: string, brandHint?: string): keyof typeof DEFAULT_PROFILES {
-  const combined = `${rawNiche ?? ''} ${brandHint ?? ''}`.toLowerCase().trim();
-  if (!combined) return 'dental';
+const REAL_ESTATE_PROFILE: Omit<BusinessProfile, 'niche'> = {
+  brandName: 'Vanguard Estates Beverly Hills',
+  expertName: 'Marcus Sterling',
+  expertTitle: 'Managing Partner & Luxury Advisory Director',
+  industry: 'ultra-prime luxury real estate & off-market advisory',
+  tagline: 'Private access to off-market architectural estates across Beverly Hills and the Platinum Triangle',
+  location: '301 N Canon Dr, Beverly Hills, CA 90210',
+  phone: '(555) 910-4400',
+  hours: 'Seven days a week by private appointment',
+  pricingGuidelines:
+    'Comprehensive property valuations, off-market acquisition briefs, and comparative ROI models are prepared confidentially following a private portfolio consultation.',
+  bookingOptions:
+    'Private dossier briefings, chauffeured estate tours, and confidential valuation consultations can be scheduled directly through this chat or our reservation form.',
+  tone: 'sophisticated, analytical, discreet, and market-commanding',
+  highlights: [
+    '$2.4B+ in closed architectural and trophy estate transactions',
+    'Direct access to unadvertised pocket listings in Beverly Hills, Bel-Air, and Holmby Hills',
+    'In-house wealth structuring, 1031 exchange, and family office advisory',
+  ],
+  services: [
+    {
+      name: 'Off-Market Pocket Listing Access',
+      summary: 'Curated acquisition of unadvertised trophy estates and architectural compounds before public market exposure.',
+      keywords: ['buy', 'buying', 'off-market', 'pocket', 'listing', 'estate', 'home', 'mansion', 'property'],
+    },
+    {
+      name: 'Confidential Estate Valuation & Sale',
+      summary: 'Data-driven property valuation and discreet global marketing to qualified ultra-high-net-worth buyers.',
+      keywords: ['sell', 'selling', 'valuation', 'worth', 'price', 'appraisal', 'market', 'value'],
+    },
+  ],
+};
 
-  const normalizedSlug = (rawNiche ?? '')
-    .toLowerCase()
-    .trim()
-    .replace(/[_\s]+/g, '-');
+const ROOFING_PROFILE: Omit<BusinessProfile, 'niche'> = {
+  brandName: 'Apex Architectural Roofing',
+  expertName: 'Harrison Cole',
+  expertTitle: 'Principal Structural Director',
+  industry: 'luxury estate roofing & storm restoration engineering',
+  tagline: 'Master-grade slate, copper, and storm-resilient roofing systems engineered for generational durability',
+  location: '9100 Wilshire Blvd, Beverly Hills, CA 90212',
+  phone: '(555) 344-8900',
+  hours: 'Monday to Saturday 7:00 AM to 7:00 PM, 24/7 Emergency Storm Response',
+  pricingGuidelines:
+    'Exact project investments are confirmed following a complimentary drone thermal inspection and structural load assessment. Full insurance claim advocacy and 0% APR financing are available.',
+  bookingOptions:
+    'Schedule a complimentary drone structural inspection or storm damage audit directly in the chat or via the booking form on this page.',
+  tone: 'authoritative, engineering-focused, dependable, and executive',
+  highlights: [
+    'Lifetime structural workmanship warranty on slate, clay tile, and standing-seam metal',
+    'Non-invasive drone thermal imaging and historical storm impact verification',
+    'White-glove insurance claim engineering and zero-disruption site management',
+  ],
+  services: [
+    {
+      name: 'Architectural Slate, Tile & Copper Roof Systems',
+      summary: 'Custom-fabricated European slate, Spanish clay, and standing-seam metal roofs built for Class-4 impact and fire resistance.',
+      keywords: ['replace', 'replacement', 'new roof', 'slate', 'tile', 'metal', 'copper', 'architectural'],
+    },
+    {
+      name: 'Storm Damage Restoration & Insurance Advocacy',
+      summary: 'Forensic hail and wind inspection paired with meteorological storm-history documentation to maximize insurance claim approval.',
+      keywords: ['storm', 'hail', 'wind', 'damage', 'insurance', 'claim', 'leak', 'repair', 'emergency'],
+    },
+  ],
+};
 
-  if (normalizedSlug && NICHE_ALIASES[normalizedSlug]) {
-    return NICHE_ALIASES[normalizedSlug];
-  }
+const SOLAR_PROFILE: Omit<BusinessProfile, 'niche'> = {
+  brandName: 'Helios Bespoke Solar & Microgrid',
+  expertName: 'Elena Rostova',
+  expertTitle: 'Chief Energy Architect',
+  industry: 'architectural solar integration & whole-estate battery storage',
+  tagline: 'Zero-visibility architectural solar arrays and autonomous Tesla microgrids for luxury estates',
+  location: '9665 Wilshire Blvd, Beverly Hills, CA 90212',
+  phone: '(555) 778-6200',
+  hours: 'Monday to Saturday 8:00 AM to 6:00 PM',
+  pricingGuidelines:
+    'Every microgrid proposal is custom-modeled using lidar roof shading and 12-month utility telemetry, factoring in the 30% Federal ITC tax credit and executive financing.',
+  bookingOptions:
+    'Book a custom satellite energy modeling session and on-site microgrid engineering assessment right here in the chat or via our page form.',
+  tone: 'innovative, precision-engineered, consultative, and high-status',
+  highlights: [
+    'Flush-mounted all-black architectural panels and integrated solar roof tiles',
+    'Autonomous whole-home backup via multi-unit Tesla Powerwall 3 microgrids',
+    'Full 25-year production, hardware, and structural guarantee',
+  ],
+  services: [
+    {
+      name: 'Architectural Solar Array & Integrated Tile',
+      summary: 'Aesthetically invisible high-efficiency monocrystalline arrays custom-mapped to preserve estate curb appeal.',
+      keywords: ['solar', 'panels', 'array', 'roof', 'install', 'installation', 'tile'],
+    },
+    {
+      name: 'Whole-Estate Battery Microgrid',
+      summary: 'Seamless off-grid backup that powers HVAC, pool systems, and EV chargers during utility blackouts.',
+      keywords: ['battery', 'storage', 'powerwall', 'backup', 'outage', 'blackout', 'microgrid', 'roi', 'bill', 'tax'],
+    },
+  ],
+};
 
-  if (/cosmetic|aesthetic|aura|alvi|facelift|rhinoplast|blepharoplast|plastic|medspa|filler|botox/.test(combined)) {
-    return 'cosmetics';
-  }
-  if (/dental|dentist|smile|vance|veneer|implant|invisalign|tooth|teeth/.test(combined)) {
-    return 'dental';
-  }
-  if (/real\s*estate|realtor|property|vanguard|mortgage|listing|villa|mansion/.test(combined)) {
-    return 'real-estate';
-  }
-  if (/roof|storm|hail|shingle|slate|gutter|apex/.test(combined)) {
-    return 'roofing';
-  }
-  if (/solar|powerwall|photovoltaic|microgrid|helios|kilowatt/.test(combined)) {
-    return 'solar';
-  }
-
-  return 'dental';
-}
-
-/**
- * Resolves and merges a complete BusinessProfile from any request payload,
- * niche string, or partial profile override.
- */
-export function resolveProfile(
-  input?: string | Partial<BusinessProfile> | BusinessContextInput | Record<string, unknown> | null,
-  fallbackNiche?: string
-): BusinessProfile {
-  if (!input || typeof input === 'string') {
-    const key = resolveNicheKey(typeof input === 'string' ? input : fallbackNiche);
-    return DEFAULT_PROFILES[key];
-  }
-
-  const rawObj = input as Record<string, unknown>;
-  const rawNiche =
-    (typeof rawObj.niche === 'string' && rawObj.niche) ||
-    (typeof rawObj.industry === 'string' && rawObj.industry) ||
-    fallbackNiche ||
-    '';
-  const rawBrand =
-    (typeof rawObj.brandName === 'string' && rawObj.brandName) ||
-    (typeof rawObj.businessName === 'string' && rawObj.businessName) ||
-    (typeof rawObj.name === 'string' && rawObj.name) ||
-    '';
-
-  const baseKey = resolveNicheKey(rawNiche, rawBrand);
-  const base = DEFAULT_PROFILES[baseKey];
-
-  const customServices = Array.isArray(rawObj.services)
-    ? rawObj.services
-        .map((s): ServiceSpec | null => {
-          if (typeof s === 'string') {
-            return { name: cleanText(s, 80), summary: cleanText(s, 220) };
-          }
-          if (s && typeof s === 'object') {
-            const item = s as Record<string, unknown>;
-            const name = cleanText(item.name ?? item.title, 80);
-            const summary = cleanText(item.summary ?? item.description ?? name, 240);
-            const price = item.price ? cleanText(item.price, 60) : undefined;
-            const keywords = Array.isArray(item.keywords)
-              ? item.keywords.map((k) => cleanText(k, 40)).filter(Boolean)
-              : undefined;
-            if (!name) return null;
-            return { name, summary, price, keywords };
-          }
-          return null;
-        })
-        .filter((s): s is ServiceSpec => Boolean(s))
-    : [];
-
-  const customHighlights = Array.isArray(rawObj.highlights)
-    ? rawObj.highlights.map((h) => cleanText(h, 160)).filter(Boolean)
-    : [];
-
+function genericProfile(niche: string): Omit<BusinessProfile, 'niche'> {
+  const industry = niche === 'general' ? 'professional services' : niche.replace(/-/g, ' ');
   return {
-    niche: cleanText(rawObj.niche, 40) || base.niche,
-    brandName: cleanText(rawObj.brandName ?? rawObj.businessName ?? rawObj.name, 80) || base.brandName,
-    industry: cleanText(rawObj.industry, 100) || base.industry,
-    expertName:
-      cleanText(rawObj.expertName ?? rawObj.doctorName ?? rawObj.leadExpert, 80) || base.expertName,
-    expertTitle: cleanText(rawObj.expertTitle, 40) || base.expertTitle,
-    tagline: cleanText(rawObj.tagline ?? rawObj.positioning, 180) || base.tagline,
-    location: cleanText(rawObj.location ?? rawObj.address, 140) || base.location,
-    hours: cleanText(rawObj.hours ?? rawObj.workingHours, 140) || base.hours,
-    phone: cleanText(rawObj.phone, 40) || base.phone,
-    tone: cleanText(rawObj.tone, 120) || base.tone,
+    brandName: 'our team',
+    expertName: 'our senior specialist',
+    expertTitle: 'Senior Specialist',
+    industry,
     pricingGuidelines:
-      cleanText(rawObj.pricingGuidelines ?? rawObj.pricingPolicy, 350) || base.pricingGuidelines,
-    bookingOptions: cleanText(rawObj.bookingOptions, 250) || base.bookingOptions,
-    highlights: customHighlights.length ? customHighlights : base.highlights,
-    services: customServices.length ? customServices : base.services,
-    notes: cleanText(rawObj.notes, 300) || base.notes,
+      'Do not quote prices unless they are listed in this knowledge. Explain that exact pricing depends on the details and is confirmed in a short consultation.',
+    bookingOptions: 'Offer to schedule a consultation or have a specialist call the visitor back.',
+    tone: 'professional, friendly and concise',
+    highlights: [],
+    services: [],
   };
 }
 
-// Aliases so any existing imports in route.ts or chat services continue working seamlessly
-export const getBusinessProfile = resolveProfile;
-export const getProfile = resolveProfile;
-export const buildBusinessProfile = resolveProfile;
+const BUILT_IN: Record<string, Omit<BusinessProfile, 'niche'>> = {
+  dental: DENTAL_PROFILE,
+  dentist: DENTAL_PROFILE,
+  dentistry: DENTAL_PROFILE,
+  cosmetics: COSMETICS_PROFILE,
+  cosmetic: COSMETICS_PROFILE,
+  'cosmetic-surgery': COSMETICS_PROFILE,
+  'cosmetics-surgery': COSMETICS_PROFILE,
+  'plastic-surgery': COSMETICS_PROFILE,
+  aesthetics: COSMETICS_PROFILE,
+  'medical-aesthetics': COSMETICS_PROFILE,
+  medspa: COSMETICS_PROFILE,
+  'real-estate': REAL_ESTATE_PROFILE,
+  realestate: REAL_ESTATE_PROFILE,
+  roofing: ROOFING_PROFILE,
+  roof: ROOFING_PROFILE,
+  solar: SOLAR_PROFILE,
+  'solar-panel': SOLAR_PROFILE,
+};
 
-/**
- * Matches a user message or topic context against the profile's signature services.
- */
-export function matchService(profile: BusinessProfile, query: string): ServiceSpec | undefined {
-  if (!query || !profile.services.length) return undefined;
-  const q = query.toLowerCase();
+// ── Resolution ───────────────────────────────────────────────────────────────
 
-  let bestMatch: ServiceSpec | undefined;
+function applyContext(base: Omit<BusinessProfile, 'niche'>, ctx: BusinessContextInput | undefined): Omit<BusinessProfile, 'niche'> {
+  if (!ctx) return base;
+  const next = { ...base };
+  const set = <K extends keyof typeof next>(key: K, value: string | undefined, max: number) => {
+    const cleaned = cleanText(value, max);
+    if (cleaned) (next as Record<string, unknown>)[key] = cleaned;
+  };
+
+  set('brandName', ctx.brandName ?? ctx.businessName, 80);
+  set('expertName', ctx.expertName, 80);
+  set('expertTitle', ctx.expertTitle, 80);
+  set('industry', ctx.industry, 80);
+  set('tagline', ctx.tagline, 200);
+  set('location', ctx.location ?? ctx.address, 200);
+  set('phone', ctx.phone, 40);
+  set('hours', ctx.hours ?? ctx.workingHours, 240);
+  set('pricingGuidelines', ctx.pricingGuidelines ?? ctx.pricing, 700);
+  set('bookingOptions', ctx.bookingOptions, 500);
+  set('tone', ctx.tone, 200);
+  set('notes', ctx.notes, 1500);
+
+  if (ctx.highlights?.length) next.highlights = ctx.highlights.map((item) => cleanText(item, 260)).filter(Boolean);
+  if (ctx.services?.length) {
+    next.services = ctx.services
+      .map((service) => ({
+        name: cleanText(service.name, 100),
+        summary: cleanText(service.summary, 500) || `${cleanText(service.name, 100)} is one of our core services.`,
+        price: cleanText(service.price, 100) || undefined,
+        keywords: (service.keywords ?? []).map((keyword) => cleanText(keyword, 40).toLowerCase()).filter(Boolean),
+      }))
+      .filter((service) => service.name);
+  }
+  return next;
+}
+
+/** Parse the optional `<NICHE>_BUSINESS_CONTEXT` env JSON (never throws; bad JSON is ignored). */
+export function parseEnvContext(raw: string | undefined): BusinessContextInput | undefined {
+  if (!raw) return undefined;
+  try {
+    const parsed = businessContextSchema.safeParse(JSON.parse(raw));
+    return parsed.success ? (parsed.data as BusinessContextInput) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export interface ResolveProfileOptions {
+  niche: string;
+  /** Server-side JSON from env (already read by the caller so this module stays pure/testable). */
+  envContext?: string;
+  clientContext?: BusinessContextInput;
+  brandName?: string;
+  expertName?: string;
+}
+
+export function resolveProfile(options: ResolveProfileOptions): BusinessProfile {
+  const rawNiche = (options.niche || 'general').toLowerCase().trim().replace(/[_\s]+/g, '-');
+  let profile = BUILT_IN[rawNiche] ?? genericProfile(rawNiche);
+  profile = applyContext(profile, parseEnvContext(options.envContext));
+  profile = applyContext(profile, options.clientContext);
+  profile = applyContext(profile, { brandName: options.brandName, expertName: options.expertName });
+  return { niche: rawNiche, ...profile };
+}
+
+// ── Matching ─────────────────────────────────────────────────────────────────
+
+/** Best-matching service for a topic or question, or undefined if nothing is relevant. */
+export function matchService(profile: BusinessProfile, query: string | undefined): ServiceInfo | undefined {
+  const haystack = ` ${(query ?? '').toLowerCase()} `;
+  if (haystack.trim().length < 2) return undefined;
+
+  let best: ServiceInfo | undefined;
   let bestScore = 0;
-
   for (const service of profile.services) {
-    let score = 0;
-    const nameTokens = service.name.toLowerCase().split(/\W+/).filter((t) => t.length > 2);
-    for (const token of nameTokens) {
-      if (q.includes(token)) score += 3;
-    }
-
-    if (service.keywords) {
-      for (const kw of service.keywords) {
-        if (q.includes(kw.toLowerCase())) score += 4;
-      }
-    }
-
-    const summaryTokens = service.summary.toLowerCase().split(/\W+/).filter((t) => t.length > 4);
-    for (const token of summaryTokens) {
-      if (q.includes(token)) score += 1;
-    }
-
+    let score = haystack.includes(service.name.toLowerCase()) ? 4 : 0;
+    for (const keyword of service.keywords) if (keyword && haystack.includes(keyword)) score += keyword.length > 6 ? 2 : 1;
     if (score > bestScore) {
+      best = service;
       bestScore = score;
-      bestMatch = service;
     }
   }
-
-  return bestScore >= 2 ? bestMatch : undefined;
+  return best;
 }
