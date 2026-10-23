@@ -71,8 +71,19 @@ const nextConfig = {
     ];
   },
 
-  // CORS, rate limiting and security headers are applied per-request by `proxy.ts`
-  // (static wildcard CORS headers were removed on purpose – see src/lib/cors.ts).
+  // Added global CORS headers to resolve cross-origin preflight blockages for universal landing pages
+  async headers() {
+    return [
+      {
+        source: '/api/:path*',
+        headers: [
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Access-Control-Allow-Methods', value: 'GET, POST, PUT, DELETE, OPTIONS' },
+          { key: 'Access-Control-Allow-Headers', value: 'X-Requested-With, Content-Type, Authorization' },
+        ],
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;
