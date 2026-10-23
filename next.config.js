@@ -71,7 +71,7 @@ const nextConfig = {
     ];
   },
 
-  // Added global CORS headers to resolve cross-origin preflight blockages for universal landing pages
+  // Bulletproof global CORS headers for both direct /api routes and internal rewritten paths
   async headers() {
     return [
       {
@@ -79,7 +79,15 @@ const nextConfig = {
         headers: [
           { key: 'Access-Control-Allow-Origin', value: '*' },
           { key: 'Access-Control-Allow-Methods', value: 'GET, POST, PUT, DELETE, OPTIONS' },
-          { key: 'Access-Control-Allow-Headers', value: 'X-Requested-With, Content-Type, Authorization' },
+          { key: 'Access-Control-Allow-Headers', value: 'X-Requested-With, Content-Type, Authorization, Accept' },
+        ],
+      },
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Access-Control-Allow-Methods', value: 'GET, POST, PUT, DELETE, OPTIONS' },
+          { key: 'Access-Control-Allow-Headers', value: 'X-Requested-With, Content-Type, Authorization, Accept' },
         ],
       },
     ];
