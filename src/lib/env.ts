@@ -101,4 +101,15 @@ export const env = {
 };
 
 /** Safe-to-expose configuration summary (booleans only, never values). */
-export function describe
+export function describeConfig() {
+  return {
+    cors: {
+      explicitOrigins: env.allowedOrigins().length,
+      localhostAllowed: env.allowLocalhost(),
+    },
+    rateLimiter: env.upstashUrl() && env.upstashToken() ? 'redis' : 'memory',
+    ai: env.geminiKeys().length > 0,
+    sms: Boolean(env.twilioAccountSid() && env.twilioAuthToken() && env.twilioPhone()),
+    database: Boolean(env.supabaseUrl() && env.supabaseKey()),
+  };
+}
