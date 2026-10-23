@@ -75,9 +75,9 @@ function resolveTopic(input: Pick<ChatPayload, 'cardContext' | 'selectedTopic' |
  * POST /ai/chat   (alias: POST /api/ai-chat)
  *
  * Universal, niche-agnostic AI concierge.
- *  - `message`          visitor text (optional when a card was clicked)
+ *  - `message`           visitor text (optional when a card was clicked)
  *  - `cardContext` / `selectedTopic`  the card the visitor clicked; with no `message` the AI opens the conversation about it
- *  - `businessContext`  optional business facts (object or free text); defaults to the built-in profile for the `niche`
+ *  - `businessContext`   optional business facts (object or free text); defaults to the built-in profile for the `niche`
  *  - `niche`, `brandName`, `expertName`, `history`  as before
  *
  * Always answers 200 `{ success: true, reply, leadCaptured: false, data: {...} }` for a valid request: if the AI
@@ -115,3 +115,17 @@ export const POST = withApi(async (request) => {
     },
   });
 });
+
+/**
+ * Handle CORS preflight (OPTIONS) requests from universal landing pages.
+ */
+export async function OPTIONS() {
+  return new Response(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+    },
+  });
+}
