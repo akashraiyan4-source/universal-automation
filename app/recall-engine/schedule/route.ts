@@ -78,3 +78,5 @@ async function POSTHandler(request: Request) {
 }
 
 export const POST = withApi(POSTHandler);
+
+export { OPTIONS, HEAD } from '@/src/lib/preflight';

@@ -52,9 +52,9 @@ test.describe('profile & prompt', () => {
   });
 
   test('unknown niche gets a generic skeleton and invalid env JSON is ignored', () => {
-    const profile = resolveProfile({ niche: 'real-estate', envContext: '{oops' });
-    expect(profile.industry).toBe('real estate');
-    expect(buildSystemInstruction(profile)).toContain('real estate');
+    const profile = resolveProfile({ niche: 'aviation', envContext: '{oops' });
+    expect(profile.industry).toBe('aviation');
+    expect(buildSystemInstruction(profile)).toContain('aviation');
   });
 
   test('business strings cannot break out of the knowledge block', () => {

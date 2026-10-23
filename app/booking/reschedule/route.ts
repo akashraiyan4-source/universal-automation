@@ -39,3 +39,5 @@ export const POST = withApi(async (request) => {
 
   return ok({ appointment }, { message: 'Appointment rescheduled successfully!', legacy: { appointment } });
 });
+
+export { OPTIONS, HEAD } from '@/src/lib/preflight';

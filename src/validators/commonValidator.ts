@@ -1,30 +1,48 @@
 import { z } from 'zod';
 import { normalizeNiche, normalizePhone } from '../lib/sanitize';
 
-/** Reusable field schemas shared by every niche. Inputs are already sanitised by `withApi`. */
+/** Reusable field schemas shared by every niche. Inputs are already sanitised + alias-normalised by `withApi`. */
 
-export const nicheField = z
-  .string()
-  .max(60)
-  .optional()
-  .transform((value) => normalizeNiche(value, 'general'));
+const asOptionalString = (value: unknown): string | undefined => {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  return undefined;
+};
 
-export const nameField = z.string().trim().min(2, 'Name must be at least 2 characters').max(100, 'Name is too long');
+export const nicheField = z.preprocess(
+  asOptionalString,
+  z
+    .string()
+    .max(60)
+    .optional()
+    .transform((value) => normalizeNiche(value, 'general'))
+);
 
-export const phoneField = z
-  .string()
-  .trim()
-  .max(30, 'Phone number is too long')
-  .transform((value, ctx) => {
-    const normalized = normalizePhone(value);
-    if (!normalized) {
-      ctx.addIssue({ code: 'custom', message: 'Enter a valid phone number (7–15 digits, optional +country code)' });
-      return z.NEVER;
-    }
-    return normalized;
-  });
+export const nameField = z.preprocess(
+  asOptionalString,
+  z.string().trim().min(2, 'Name must be at least 2 characters').max(100, 'Name is too long')
+);
 
-export const emailField = z.string().trim().toLowerCase().email('Invalid email format').max(254);
+export const phoneField = z.preprocess(
+  asOptionalString,
+  z
+    .string()
+    .trim()
+    .max(30, 'Phone number is too long')
+    .transform((value, ctx) => {
+      const normalized = normalizePhone(value);
+      if (!normalized) {
+        ctx.addIssue({ code: 'custom', message: 'Enter a valid phone number (7–15 digits, optional +country code)' });
+        return z.NEVER;
+      }
+      return normalized;
+    })
+);
+
+export const emailField = z.preprocess(
+  asOptionalString,
+  z.string().trim().toLowerCase().email('Invalid email format').max(254)
+);
 
 export const shortText = (max = 200) => z.string().trim().max(max);
 
@@ -44,6 +62,9 @@ export const dateTimeField = z
 
 export const commonLeadValidator = z.object({
   name: nameField,
+  fullName: z.string().trim().max(100).optional(),
+  clientName: z.string().trim().max(100).optional(),
+  patientName: z.string().trim().max(100).optional(),
   email: emailField,
   phone: phoneField,
   niche: nicheField,

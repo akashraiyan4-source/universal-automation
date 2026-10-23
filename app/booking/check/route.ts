@@ -34,3 +34,5 @@ export const GET = withApi(async (request) => {
   };
   return ok({ appointment: summary }, { legacy: { appointment: summary } });
 });
+
+export { OPTIONS, HEAD } from '@/src/lib/preflight';

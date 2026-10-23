@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ok, withApi } from '@/src/lib/api';
 import { fetchWithTimeout } from '@/src/lib/async';
+import { protect } from '@/src/lib/resilience';
 import { env } from '@/src/lib/env';
 import { ApiError, zodDetails } from '@/src/middlewares/errorHandler';
 import { logger } from '@/src/middlewares/logger';
@@ -48,16 +49,21 @@ async function GETHandler(request: Request) {
 
     let data: any;
     try {
-        const response = await fetchWithTimeout(url, {}, 6_000);
+        const response = await protect({
+            service: 'google',
+            timeoutMs: 6_000,
+            label: 'Google Places details',
+            action: () => fetchWithTimeout(url, {}, 6_000),
+        });
         data = await response.json();
     } catch (error) {
-        logger.error('reviews.upstream_failed', error);
-        throw new ApiError('Failed to fetch live review data from Google Maps.', 502);
+        logger.warn('reviews.upstream_failed', { reason: error instanceof Error ? error.message : 'unknown' });
+        return ok(FALLBACK, { headers: cache, legacy: { source: 'fallback' } });
     }
 
     if (data?.status !== 'OK') {
         logger.warn('reviews.upstream_status', { status: data?.status });
-        throw new ApiError('Failed to fetch live review data from Google Maps.', 502);
+        return ok(FALLBACK, { headers: cache, legacy: { source: 'fallback' } });
     }
 
     const payload = {
@@ -70,3 +76,5 @@ async function GETHandler(request: Request) {
 }
 
 export const GET = withApi(GETHandler);
+
+export { OPTIONS, HEAD } from '@/src/lib/preflight';

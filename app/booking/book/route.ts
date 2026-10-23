@@ -14,3 +14,5 @@ export const POST = withApi((request) =>
     successMessage: 'Appointment booked successfully.',
   })
 );
+
+export { OPTIONS, HEAD } from '@/src/lib/preflight';

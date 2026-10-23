@@ -19,6 +19,8 @@ const baseFields = {
   fullName: z.string().trim().max(100).optional(),
   name: z.string().trim().max(100).optional(),
   clientName: z.string().trim().max(100).optional(),
+  patientName: z.string().trim().max(100).optional(),
+  customerName: z.string().trim().max(100).optional(),
   appointmentDate: dateTimeField.optional(),
   date: dateTimeField.optional(),
   treatment: z.string().trim().max(120).optional(),
@@ -41,7 +43,7 @@ interface BookingOptions {
 export async function handleBooking(request: Request, options: BookingOptions): Promise<Response> {
   const input = await parseJson(request, options.mode === 'strict' ? strictSchema : lenientSchema);
 
-  const fullName = input.fullName || input.name || input.clientName || '';
+  const fullName = input.fullName || input.name || input.clientName || input.patientName || input.customerName || '';
   if (options.mode === 'strict' && fullName.length < 2) {
     throw new ApiError('Name must be at least 2 characters.', 400, { fullName: ['Name must be at least 2 characters'] });
   }

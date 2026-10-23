@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import twilio from 'twilio';
 import { fail, withApi } from '@/src/lib/api';
 import { fetchWithTimeout } from '@/src/lib/async';
+import { nicheLabel, pickNicheValue } from '@/src/lib/niche';
+import { protect } from '@/src/lib/resilience';
 import { env } from '@/src/lib/env';
 import { checkInternalKey } from '@/src/lib/internal-auth';
 import { kv } from '@/src/lib/kv';
@@ -37,8 +39,16 @@ const NICHE_CONTENT: Record<string, MissedCallContent> = {
     },
 };
 
+const genericMissedCallContent = (niche: string): MissedCallContent => {
+    const label = nicheLabel(niche, 'our team');
+    return {
+        voiceText: `Thank you for calling. We missed your live call about ${label}, but a follow-up text has been sent to your mobile. We will get back to you shortly.`,
+        smsText: `Sorry we missed your call about ${label}. How can we help you right now? Reply here or book online.`,
+    };
+};
+
 const getUniversalMissedCallContent = (niche: string) => {
-    const content = NICHE_CONTENT[niche] ?? NICHE_CONTENT.dental;
+    const content = pickNicheValue(niche, NICHE_CONTENT, genericMissedCallContent(niche));
     const envKey = `RETELL_${niche.toUpperCase().replace(/[^A-Z0-9]/g, '_')}_AGENT_ID`;
     return { ...content, agentId: env.get(envKey) ?? env.get('RETELL_AGENT_ID') };
 };
@@ -68,21 +78,21 @@ async function POSTHandler(request: Request) {
     try {
         let callerRaw = '';
         let calledRaw = '';
-        let rawNiche = 'dental';
+        let rawNiche = 'general';
 
         if (isForm) {
             const formData = await request.formData();
             callerRaw = formData.get('From')?.toString() || '';
             calledRaw = formData.get('To')?.toString() || '';
-            rawNiche = formData.get('Niche')?.toString() || new URL(request.url).searchParams.get('niche') || 'dental';
+            rawNiche = formData.get('Niche')?.toString() || new URL(request.url).searchParams.get('niche') || 'general';
         } else {
             const body = await request.json().catch(() => ({}));
             callerRaw = body.From || body.callerPhone || '';
             calledRaw = body.To || body.calledNumber || '';
-            rawNiche = body.Niche || body.niche || 'dental';
+            rawNiche = body.Niche || body.niche || 'general';
         }
 
-        const niche = normalizeNiche(rawNiche, 'dental');
+        const niche = normalizeNiche(rawNiche, 'general');
         const callerPhone = normalizePhone(callerRaw);
         const content = getUniversalMissedCallContent(niche);
 
@@ -97,7 +107,13 @@ async function POSTHandler(request: Request) {
             if (firstContact) {
                 if (accountSid && authToken && twilioPhone) {
                     try {
-                        await twilio(accountSid, authToken).messages.create({ body: content.smsText, from: twilioPhone, to: callerPhone });
+                        await protect({
+                            service: 'twilio',
+                            timeoutMs: 8_000,
+                            label: 'Twilio missed-call SMS',
+                            action: () =>
+                                twilio(accountSid, authToken).messages.create({ body: content.smsText, from: twilioPhone, to: callerPhone }),
+                        });
                         logger.info('missedcall.sms_sent', { to: maskPhone(callerPhone), niche });
                     } catch (error) {
                         logger.error('missedcall.sms_failed', error);
@@ -109,15 +125,21 @@ async function POSTHandler(request: Request) {
                 const retellKey = env.retellKey();
                 if (retellKey && content.agentId && twilioPhone) {
                     try {
-                        const response = await fetchWithTimeout('https://api.retellai.com/v2/create-phone-call', {
-                            method: 'POST',
-                            headers: { Authorization: `Bearer ${retellKey}`, 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                from_number: twilioPhone,
-                                to_number: callerPhone,
-                                retell_agent_id: content.agentId,
-                                metadata: { niche, source: 'Universal Missed-Call Engine' },
-                            }),
+                        const response = await protect({
+                            service: 'retell',
+                            timeoutMs: 8_000,
+                            label: 'Retell callback',
+                            action: () =>
+                                fetchWithTimeout('https://api.retellai.com/v2/create-phone-call', {
+                                    method: 'POST',
+                                    headers: { Authorization: `Bearer ${retellKey}`, 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        from_number: twilioPhone,
+                                        to_number: callerPhone,
+                                        retell_agent_id: content.agentId,
+                                        metadata: { niche, source: 'Universal Missed-Call Engine' },
+                                    }),
+                                }),
                         });
                         logger.info('missedcall.ai_callback', { niche, status: response.status });
                     } catch (error) {
@@ -137,3 +159,5 @@ async function POSTHandler(request: Request) {
 }
 
 export const POST = withApi(POSTHandler);
+
+export { OPTIONS, HEAD } from '@/src/lib/preflight';

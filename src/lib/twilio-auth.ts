@@ -8,8 +8,16 @@ import { env } from './env';
  * Enabled by default in production (override with `TWILIO_VALIDATE_SIGNATURE=false`). The signature covers
  * the exact public URL Twilio called – set `PUBLIC_BASE_URL` if the app sits behind a custom proxy.
  *
- * Returns `null` when the request is acceptable, otherwise a ready-to-return 403 Response.
+ * Returns `null` when the request is acceptable, otherwise a JSON 401 envelope
+ * (`{ success: false, error }`) – never a bare 403 that breaks API clients.
  */
+function unsignedResponse(error: string): Response {
+  return new Response(JSON.stringify({ success: false, error }), {
+    status: 401,
+    headers: { 'content-type': 'application/json; charset=utf-8' },
+  });
+}
+
 export function rejectUnsignedTwilioRequest(request: Request, params: Record<string, string>): Response | null {
   if (!env.validateTwilioSignature()) return null;
 
@@ -21,7 +29,7 @@ export function rejectUnsignedTwilioRequest(request: Request, params: Record<str
   }
   const signature = request.headers.get('x-twilio-signature');
   if (!signature) {
-    return new Response('Forbidden', { status: 403 });
+    return unsignedResponse('Twilio signature missing.');
   }
 
   const incoming = new URL(request.url);
@@ -39,7 +47,7 @@ export function rejectUnsignedTwilioRequest(request: Request, params: Record<str
   for (const url of candidates) {
     if (twilio.validateRequest(authToken, signature, url, params)) return null;
   }
-  return new Response('Forbidden', { status: 403 });
+  return unsignedResponse('Twilio signature invalid.');
 }
 
 /** Convenience wrapper for form-encoded Twilio webhooks: parses a clone and verifies the signature. */

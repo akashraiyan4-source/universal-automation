@@ -13,3 +13,5 @@ export const POST = withApi((request) =>
     successMessage: 'Slot reserved successfully.',
   })
 );
+
+export { OPTIONS, HEAD } from '@/src/lib/preflight';

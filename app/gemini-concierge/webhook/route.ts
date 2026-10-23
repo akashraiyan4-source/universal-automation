@@ -6,6 +6,8 @@ import { checkInternalKey } from '@/src/lib/internal-auth';
 import { maskPhone, normalizeNiche, normalizePhone, sanitizeString } from '@/src/lib/sanitize';
 import { guardTwilioWebhook } from '@/src/lib/twilio-auth';
 import { logger } from '@/src/middlewares/logger';
+import { pickNicheValue } from '@/src/lib/niche';
+import { protect } from '@/src/lib/resilience';
 import { generateReply, isAiConfigured, promptSafe } from '@/src/services/geminiService';
 
 const DEFAULT_REPLY = 'Thank you. Our executive team is reserving your priority triage slot now.';
@@ -57,7 +59,7 @@ Strict rules:
 };
 
 const getUniversalSystemPrompt = (niche: string): string => {
-    const known = NICHE_PROMPTS[niche];
+    const known = pickNicheValue(niche, NICHE_PROMPTS, '');
     if (known) return known;
     const label = promptSafe(niche.replace(/-/g, ' '), 'professional services', 40);
     return `
@@ -91,18 +93,18 @@ async function POSTHandler(request: Request) {
     try {
         let fromRaw = '';
         let userMessage = '';
-        let rawNiche = 'dental';
+        let rawNiche = 'general';
 
         if (isForm) {
             const formData = await request.formData();
             fromRaw = formData.get('From')?.toString() || '';
             userMessage = formData.get('Body')?.toString() || '';
-            rawNiche = formData.get('Niche')?.toString() || new URL(request.url).searchParams.get('niche') || 'dental';
+            rawNiche = formData.get('Niche')?.toString() || new URL(request.url).searchParams.get('niche') || 'general';
         } else {
             const body = await request.json().catch(() => ({}));
             fromRaw = body.From || body.phone || '';
             userMessage = body.Body || body.message || '';
-            rawNiche = body.Niche || body.niche || 'dental';
+            rawNiche = body.Niche || body.niche || 'general';
         }
 
         const fromPhone = normalizePhone(fromRaw);
@@ -112,7 +114,7 @@ async function POSTHandler(request: Request) {
             return emptyTwiml();
         }
 
-        const niche = normalizeNiche(rawNiche, 'dental');
+        const niche = normalizeNiche(rawNiche, 'general');
         logger.info('sms.received', { from: maskPhone(fromPhone), niche });
 
         if (!isAiConfigured()) {
@@ -138,7 +140,12 @@ async function POSTHandler(request: Request) {
         const twilioPhone = env.twilioPhone();
 
         if (accountSid && authToken && twilioPhone) {
-            await twilio(accountSid, authToken).messages.create({ body: aiReply, from: twilioPhone, to: fromPhone });
+            await protect({
+                service: 'twilio',
+                timeoutMs: 8_000,
+                label: 'Twilio SMS reply',
+                action: () => twilio(accountSid, authToken).messages.create({ body: aiReply, from: twilioPhone, to: fromPhone }),
+            });
             logger.info('sms.reply_sent', { to: maskPhone(fromPhone), niche });
         } else {
             logger.warn('sms.twilio_not_configured');
@@ -152,3 +159,5 @@ async function POSTHandler(request: Request) {
 }
 
 export const POST = withApi(POSTHandler);
+
+export { OPTIONS, HEAD } from '@/src/lib/preflight';

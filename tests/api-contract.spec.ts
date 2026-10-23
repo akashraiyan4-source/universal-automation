@@ -31,31 +31,51 @@ test.describe('platform guarantees', () => {
     expect(body.success).toBe(false);
   });
 
-  test('CORS: allowed origins pass pre-flight, others are rejected', async ({ request }) => {
+  test('CORS: any landing-page origin passes pre-flight (universal CORS)', async ({ request }) => {
     const ok = await request.fetch('/api/booking', {
       method: 'OPTIONS',
-      headers: { Origin: ALLOWED_ORIGIN, 'Access-Control-Request-Method': 'POST', 'Access-Control-Request-Headers': 'content-type,idempotency-key' },
+      headers: { Origin: ALLOWED_ORIGIN, 'Access-Control-Request-Method': 'POST', 'Access-Control-Request-Headers': 'content-type,idempotency-key,x-api-key' },
     });
     expect(ok.status()).toBe(204);
-    expect(ok.headers()['access-control-allow-origin']).toBe(ALLOWED_ORIGIN);
-    expect(ok.headers()['access-control-allow-headers']).toContain('Idempotency-Key');
-    expect(ok.headers()['access-control-allow-origin']).not.toBe('*');
+    expect(ok.headers()['access-control-allow-origin']).toBeTruthy();
+    expect(ok.headers()['access-control-allow-headers']?.toLowerCase()).toContain('idempotency-key');
+    expect(ok.headers()['access-control-allow-headers']?.toLowerCase()).toContain('x-api-key');
 
-    const blocked = await request.fetch('/api/booking', {
+    const other = await request.fetch('/api/booking', {
       method: 'OPTIONS',
       headers: { Origin: EVIL_ORIGIN, 'Access-Control-Request-Method': 'POST' },
     });
-    expect(blocked.status()).toBe(403);
-    expect(blocked.headers()['access-control-allow-origin']).toBeUndefined();
+    expect(other.status()).toBe(204);
+    expect(other.headers()['access-control-allow-origin']).toBeTruthy();
   });
 
-  test('CORS: state-changing request from a foreign origin is refused before reaching the route', async ({ request }) => {
+  test('CORS: state-changing request from any frontend origin is not blocked', async ({ request }) => {
     const res = await request.post('/api/booking', {
-      data: { fullName: 'Mallory Evil', phone: uniquePhone() },
+      data: { fullName: 'Mallory Visitor', phone: uniquePhone() },
       headers: { 'Content-Type': 'application/json', Origin: EVIL_ORIGIN },
     });
-    expect(res.status()).toBe(403);
-    expect(res.headers()['access-control-allow-origin']).toBeUndefined();
+    expect(res.status()).not.toBe(403);
+    expect(res.status()).not.toBe(405);
+    expect(res.status()).toBe(201);
+    expect(res.headers()['access-control-allow-origin']).toBeTruthy();
+  });
+
+  test('OPTIONS and HEAD succeed on POST-only routes (no 405)', async ({ request }) => {
+    for (const path of ['/api/booking', '/api/lead-scoring', '/api/quote-calculator', '/api/ai-chat']) {
+      const options = await request.fetch(path, { method: 'OPTIONS', headers: { Origin: ALLOWED_ORIGIN } });
+      expect(options.status(), `OPTIONS ${path}`).toBe(204);
+      const head = await request.fetch(path, { method: 'HEAD', headers: { Origin: ALLOWED_ORIGIN } });
+      expect(head.status(), `HEAD ${path}`).toBeLessThan(400);
+    }
+  });
+
+  test('payload aliases (patientName, From, Niche) are normalised before the handler', async ({ request }) => {
+    const res = await request.post('/api/booking', json({ patientName: 'Alias User', From: uniquePhone(), Niche: 'Med Spa' }));
+    expect(res.status()).toBe(201);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.data.appointment.fullName).toBe('Alias User');
+    expect(body.data.appointment.niche).toBe('med-spa');
   });
 });
 

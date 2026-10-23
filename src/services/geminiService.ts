@@ -1,5 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { withTimeout } from '../lib/async';
+import { CircuitOpenError, circuitBreakers } from '../lib/circuit-breaker';
 import { env } from '../lib/env';
 
 /**
@@ -72,25 +73,28 @@ export async function generateReply(options: GenerateOptions): Promise<string> {
     const remaining = options.totalBudgetMs ? options.totalBudgetMs - (Date.now() - startedAt) : perAttemptMs;
     if (remaining < 800) break; // not enough time left for a meaningful attempt
     try {
-      const response = await withTimeout(
-        clientFor(key).models.generateContent({
-          model,
-          contents: buildContents(options.history ?? [], options.message),
-          config: {
-            systemInstruction: options.systemInstruction,
-            maxOutputTokens: options.maxOutputTokens ?? 300,
-            temperature: options.temperature ?? 0.7,
-            ...(options.fast && supportsThinkingOff(model) ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
-          },
-        }),
-        Math.min(perAttemptMs, remaining),
-        'Gemini request'
+      const response = await circuitBreakers.gemini.fire(() =>
+        withTimeout(
+          clientFor(key).models.generateContent({
+            model,
+            contents: buildContents(options.history ?? [], options.message),
+            config: {
+              systemInstruction: options.systemInstruction,
+              maxOutputTokens: options.maxOutputTokens ?? 300,
+              temperature: options.temperature ?? 0.7,
+              ...(options.fast && supportsThinkingOff(model) ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+            },
+          }),
+          Math.min(perAttemptMs, remaining),
+          'Gemini request'
+        )
       );
       const text = response.text?.trim();
       if (text) return text;
       lastError = new Error('Empty AI response');
     } catch (error) {
-      lastError = error; // try the next key
+      lastError = error;
+      if (error instanceof CircuitOpenError) break; // fail fast – do not burn remaining keys
     }
   }
   throw lastError instanceof Error ? lastError : new Error('All AI keys failed');

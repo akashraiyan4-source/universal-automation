@@ -12,6 +12,7 @@ const LOCK_SECONDS = 10 * 60;
 const schema = z.object({
   slotTime: z.string().trim().min(2, 'Slot time is required').max(60),
   userPhone: phoneField.optional(),
+  phone: phoneField.optional(),
   niche: nicheField,
 });
 
@@ -28,7 +29,7 @@ interface SlotLock {
  */
 export const POST = withApi(async (request) => {
   const input = await parseJson(request, schema);
-  const owner = (input.userPhone ? normalizePhone(input.userPhone) : null) ?? `guest:${request.headers.get('x-client-ip') ?? 'unknown'}`;
+  const owner = (input.userPhone || input.phone ? normalizePhone(input.userPhone || input.phone) : null) ?? `guest:${request.headers.get('x-client-ip') ?? 'unknown'}`;
   const key = `slot:${input.niche}:${await sha256Hex(input.slotTime.toLowerCase())}`;
 
   const lock: SlotLock = {
@@ -61,3 +62,5 @@ export const POST = withApi(async (request) => {
   };
   return ok(payload, { message: 'Slot locked temporarily for 10 minutes.', legacy: payload });
 });
+
+export { OPTIONS, HEAD } from '@/src/lib/preflight';

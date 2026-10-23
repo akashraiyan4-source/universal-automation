@@ -79,6 +79,15 @@ export function handleApiError(error: unknown, requestId?: string, defaultStatus
     );
   }
 
+  // Circuit-open / upstream timeouts are availability issues, not application bugs.
+  const rawMessage = error instanceof Error ? error.message : '';
+  if (/circuit open|timed out after/i.test(rawMessage)) {
+    return NextResponse.json(
+      { success: false, error: 'A connected service is temporarily unavailable. Please try again shortly.', requestId, timestamp },
+      { status: 503 }
+    );
+  }
+
   console.error(`[API 500] ${requestId ?? '-'}:`, error instanceof Error ? `${error.name}: ${error.message}` : error);
   const raw = error instanceof Error ? error.message : 'An unexpected internal server error occurred.';
   return NextResponse.json(

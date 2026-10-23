@@ -63,3 +63,5 @@ async function GETHandler(request: Request) {
 }
 
 export const GET = withApi(GETHandler);
+
+export { OPTIONS, HEAD } from '@/src/lib/preflight';

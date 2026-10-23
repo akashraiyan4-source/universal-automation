@@ -40,7 +40,7 @@ export const isTest = (): boolean => process.env.NODE_ENV === 'test';
 
 export const env = {
   // ── Security / CORS ────────────────────────────────────────────────────────
-  /** Universal allowed origins - defaults to wildcard or explicit lists. */
+  /** Informational origin list. CORS itself is universal (`*`) so new landing pages are never blocked. */
   allowedOrigins: (): string[] => {
     const list = [...readList('ALLOWED_ORIGINS'), ...readList('ALLOWED_ORIGIN')];
     if (list.length === 0) return ['*'];
@@ -104,7 +104,8 @@ export const env = {
 export function describeConfig() {
   return {
     cors: {
-      explicitOrigins: env.allowedOrigins().length,
+      mode: 'universal',
+      configuredOrigins: env.allowedOrigins().length,
       localhostAllowed: env.allowLocalhost(),
     },
     rateLimiter: env.upstashUrl() && env.upstashToken() ? 'redis' : 'memory',

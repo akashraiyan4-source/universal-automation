@@ -71,25 +71,23 @@ const nextConfig = {
     ];
   },
 
-  // Bulletproof global CORS headers for both direct /api routes and internal rewritten paths
+  // Universal CORS on every path so multi-niche landing pages (any domain) never get blocked.
+  // Proxy.ts also stamps these per-request (reflecting Origin when present).
   async headers() {
+    const cors = [
+      { key: 'Access-Control-Allow-Origin', value: '*' },
+      { key: 'Access-Control-Allow-Methods', value: 'GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS' },
+      {
+        key: 'Access-Control-Allow-Headers',
+        value:
+          'X-Requested-With, Content-Type, Authorization, Accept, X-API-Key, X-Client-Key, X-Tenant-ID, X-Request-ID, X-Trace-ID, Idempotency-Key',
+      },
+      { key: 'Access-Control-Expose-Headers', value: 'X-Request-ID, Retry-After, Idempotent-Replay, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset' },
+      { key: 'Access-Control-Max-Age', value: '86400' },
+    ];
     return [
-      {
-        source: '/api/:path*',
-        headers: [
-          { key: 'Access-Control-Allow-Origin', value: '*' },
-          { key: 'Access-Control-Allow-Methods', value: 'GET, POST, PUT, DELETE, OPTIONS' },
-          { key: 'Access-Control-Allow-Headers', value: 'X-Requested-With, Content-Type, Authorization, Accept' },
-        ],
-      },
-      {
-        source: '/:path*',
-        headers: [
-          { key: 'Access-Control-Allow-Origin', value: '*' },
-          { key: 'Access-Control-Allow-Methods', value: 'GET, POST, PUT, DELETE, OPTIONS' },
-          { key: 'Access-Control-Allow-Headers', value: 'X-Requested-With, Content-Type, Authorization, Accept' },
-        ],
-      },
+      { source: '/api/:path*', headers: cors },
+      { source: '/:path*', headers: cors },
     ];
   },
 };

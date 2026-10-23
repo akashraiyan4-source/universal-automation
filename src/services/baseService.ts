@@ -1,4 +1,5 @@
-import { db, supabase } from '../config/database';
+import { db, supabase, withDatabase } from '../config/database';
+import { ApiError } from '../middlewares/errorHandler';
 
 export class BaseService {
   protected db = db || supabase;
@@ -8,17 +9,23 @@ export class BaseService {
     queryPromise: Promise<{ data: T | null; error: any }>,
     allowNull = false
   ): Promise<T> {
-    const { data, error } = await queryPromise;
+    try {
+      const { data, error } = await withDatabase(() => queryPromise);
 
-    if (error) {
-      console.error('🔥 [BaseService Database Error]:', error);
-      throw new Error(`Database Error: ${error.message || 'Unknown database error'}`);
+      if (error) {
+        console.error('[BaseService] Database error:', error);
+        throw new ApiError('The database is temporarily unavailable. Please try again shortly.', 503);
+      }
+
+      if (!data && !allowNull) {
+        throw new ApiError('Requested resource not found.', 404);
+      }
+
+      return data as T;
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      console.error('[BaseService] Query failed:', error instanceof Error ? error.message : error);
+      throw new ApiError('The database is temporarily unavailable. Please try again shortly.', 503);
     }
-
-    if (!data && !allowNull) {
-      throw new Error('Requested resource not found');
-    }
-
-    return data as T;
   }
 }

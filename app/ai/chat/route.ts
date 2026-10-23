@@ -116,16 +116,4 @@ export const POST = withApi(async (request) => {
   });
 });
 
-/**
- * Handle CORS preflight (OPTIONS) requests from universal landing pages.
- */
-export async function OPTIONS() {
-  return new Response(null, {
-    status: 200,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
-    },
-  });
-}
+export { OPTIONS, HEAD } from '@/src/lib/preflight';

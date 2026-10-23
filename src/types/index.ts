@@ -1,29 +1,38 @@
 // src/types/index.ts
 
-// ১. ইউনিভার্সাল লিড (Lead) পেমেন্ট বা সাবমিশন টাইপ
+/** Universal lead payload. Alias fields (patientName, From, Niche, …) are normalised before handlers run. */
 export interface LeadPayload {
-  name: string;
-  email: string;
-  phone: string;
-  niche?: string; // যেমন: 'dental', 'cosmetic', 'roofing', 'solar' ইত্যাদি
+  name?: string;
+  fullName?: string;
+  clientName?: string;
+  patientName?: string;
+  email?: string;
+  phone?: string;
+  callerPhone?: string;
+  niche?: string;
   message?: string;
   serviceType?: string;
+  treatment?: string;
   preferredDate?: string;
   metadata?: Record<string, unknown>;
 }
 
-// ২. ইউনিভার্সাল API রেসপন্স টাইপ
 export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
   details?: unknown;
-  timestamp: string;
+  requestId?: string;
+  timestamp?: string;
 }
 
-// ৩. ডাটাবেস বা অন্যান্য কমন ইন্টারফেস
 export interface BaseEntity {
   id: string;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface TenantAware {
+  tenantId?: string | null;
+  niche?: string;
 }

@@ -36,3 +36,5 @@ export const POST = withApi(async (request) => {
 
   return ok({ appointment: target }, { message: 'Appointment cancelled successfully.', legacy: { appointment: target } });
 });
+
+export { OPTIONS, HEAD } from '@/src/lib/preflight';

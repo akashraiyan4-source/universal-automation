@@ -8,13 +8,16 @@ import { maskPhone, normalizePhone } from '@/src/lib/sanitize';
 import { escapeXml } from '@/src/lib/twilio-auth';
 import { ApiError } from '@/src/middlewares/errorHandler';
 import { logger } from '@/src/middlewares/logger';
+import { protect } from '@/src/lib/resilience';
 import { generateReply, isAiConfigured, promptSafe } from '@/src/services/geminiService';
 import { nicheField } from '@/src/validators/commonValidator';
 
 const CALLBACK_COOLDOWN_SECONDS = 10 * 60;
 
 const schema = z.object({
-    customerPhone: z.string().trim().max(30),
+    customerPhone: z.string().trim().max(30).optional(),
+    phone: z.string().trim().max(30).optional(),
+    callerPhone: z.string().trim().max(30).optional(),
     niche: nicheField,
     brandName: z.string().trim().max(80).optional(),
 });
@@ -29,7 +32,7 @@ async function POSTHandler(request: Request) {
     if (!auth.ok) return fail(auth.error, auth.status);
 
     const input = await parseJson(request, schema);
-    const customerPhone = normalizePhone(input.customerPhone);
+    const customerPhone = normalizePhone(input.customerPhone || input.phone || input.callerPhone || '');
     if (!customerPhone) throw new ApiError('A valid customer phone number is required for AI callback.', 400);
 
     const accountSid = env.twilioAccountSid();
@@ -67,10 +70,16 @@ async function POSTHandler(request: Request) {
     const voice = 'Polly.Stephen-Neural';
 
     try {
-        const call = await twilio(accountSid, authToken).calls.create({
-            to: customerPhone,
-            from: fromNumber,
-            twiml: `<Response><Say voice="${voice}">${escapeXml(aiGreeting)}</Say><Gather input="speech" action="${escapeXml(speechUrl)}" method="POST" timeout="5" speechTimeout="auto" language="en-US"><Say voice="${voice}">Please let me know, what would you like to discuss?</Say></Gather></Response>`,
+        const call = await protect({
+            service: 'twilio',
+            timeoutMs: 10_000,
+            label: 'Twilio outbound call',
+            action: () =>
+                twilio(accountSid, authToken).calls.create({
+                    to: customerPhone,
+                    from: fromNumber,
+                    twiml: `<Response><Say voice="${voice}">${escapeXml(aiGreeting)}</Say><Gather input="speech" action="${escapeXml(speechUrl)}" method="POST" timeout="5" speechTimeout="auto" language="en-US"><Say voice="${voice}">Please let me know, what would you like to discuss?</Say></Gather></Response>`,
+                }),
         });
         logger.info('voice.callback.placed', { to: maskPhone(customerPhone), sid: call.sid });
         return ok(
@@ -85,3 +94,5 @@ async function POSTHandler(request: Request) {
 }
 
 export const POST = withApi(POSTHandler);
+
+export { OPTIONS, HEAD } from '@/src/lib/preflight';

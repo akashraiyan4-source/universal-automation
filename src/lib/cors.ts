@@ -1,26 +1,30 @@
-import { env } from './env';
-
 /**
- * Strict, allow-list based CORS.
+ * Universal CORS for a multi-niche public API.
  *
- *  - `ALLOWED_ORIGINS`: exact origins (`https://clinic.example.com`) or single-label
- *    wildcards (`https://*.example.com`). A bare `*` is deliberately ignored.
- *  - localhost / 127.0.0.1 / [::1] (any port, http or https) are allowed unless
- *    `ALLOW_LOCALHOST_ORIGINS=false`.
- *  - Requests without an `Origin` header (server-to-server, Twilio webhooks, curl)
- *    are not subject to CORS and are never rejected here.
+ * This backend is called by an unbounded set of landing-page origins (current and
+ * future). An origin allow-list cannot scale and is the #1 source of 403s on
+ * pre-flight. Security is enforced by rate limiting, Twilio signature checks,
+ * and `INTERNAL_API_KEY` on money-moving routes – not by blocking browsers.
+ *
+ * Behaviour:
+ *  - Every response carries CORS headers (`*` or the reflected Origin).
+ *  - Invalid / missing Origin → `Access-Control-Allow-Origin: *`.
+ *  - `isOriginAllowed()` is always true so the proxy never 403s a frontend.
  */
 
-export const CORS_ALLOWED_METHODS = 'GET, POST, PUT, PATCH, DELETE, OPTIONS';
+export const CORS_ALLOWED_METHODS = 'GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS';
 export const CORS_ALLOWED_HEADERS = [
   'Content-Type',
   'Accept',
   'Authorization',
   'X-Requested-With',
   'X-Request-ID',
-  'Idempotency-Key',
+  'X-API-Key',
   'X-Client-Key',
+  'X-Tenant-ID',
+  'X-Client-ID',
   'X-Trace-ID',
+  'Idempotency-Key',
 ].join(', ');
 export const CORS_EXPOSED_HEADERS = [
   'X-Request-ID',
@@ -31,50 +35,29 @@ export const CORS_EXPOSED_HEADERS = [
   'X-RateLimit-Reset',
 ].join(', ');
 
-const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
-
-function parseOrigin(origin: string): URL | null {
+function isUsableOrigin(origin: string): boolean {
   try {
     const url = new URL(origin);
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
-    // A real browser Origin never carries a path/query; reject anything that does.
-    if (url.origin !== origin.replace(/\/$/, '')) return null;
-    return url;
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
+    return url.origin === origin.replace(/\/$/, '');
   } catch {
-    return null;
+    return false;
   }
 }
 
-function matchesPattern(url: URL, pattern: string): boolean {
-  const normalized = pattern.replace(/\/$/, '');
-  if (!normalized.includes('*')) return url.origin === normalized;
-
-  // Only support `scheme://*.domain` – one wildcard, leading label only.
-  const match = /^(https?):\/\/\*\.([a-z0-9.-]+)$/i.exec(normalized);
-  if (!match) return false;
-  const [, scheme, domain] = match;
-  if (url.protocol !== `${scheme.toLowerCase()}:`) return false;
-  const host = url.hostname.toLowerCase();
-  const root = domain.toLowerCase();
-  // Require at least one extra label and forbid sneaky `evil-example.com` matches.
-  return host.length > root.length + 1 && host.endsWith(`.${root}`);
+/** Always true – landing pages on any domain must reach this API. */
+export function isOriginAllowed(_origin?: string | null): boolean {
+  return true;
 }
 
-export function isOriginAllowed(origin: string | null | undefined): boolean {
-  if (!origin) return true; // not a cross-origin browser request
-  const url = parseOrigin(origin);
-  if (!url) return false;
-
-  if (env.allowLocalhost() && LOCAL_HOSTS.has(url.hostname)) return true;
-
-  return env.allowedOrigins().some((pattern) => matchesPattern(url, pattern));
-}
-
-/** CORS response headers for an (already validated) browser origin. */
+/**
+ * CORS response headers. Reflect a well-formed Origin (widest browser compatibility
+ * with custom headers); otherwise advertise `*`.
+ */
 export function corsHeaders(origin: string | null | undefined): Record<string, string> {
-  if (!origin || !isOriginAllowed(origin)) return { Vary: 'Origin' };
+  const allowOrigin = origin && isUsableOrigin(origin) ? origin : '*';
   return {
-    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Origin': allowOrigin,
     'Access-Control-Allow-Methods': CORS_ALLOWED_METHODS,
     'Access-Control-Allow-Headers': CORS_ALLOWED_HEADERS,
     'Access-Control-Expose-Headers': CORS_EXPOSED_HEADERS,

@@ -8,3 +8,5 @@ export const GET = withApi(() =>
     { headers: { 'Cache-Control': 'no-store' } }
   )
 );
+
+export { OPTIONS, HEAD } from '@/src/lib/preflight';

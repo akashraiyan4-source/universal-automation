@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import type { ZodType } from 'zod';
 import { ApiError, defaultMessageForStatus, handleApiError, publicErrorMessage } from '../middlewares/errorHandler';
 import { env } from './env';
+import { normalizePayload } from './payload';
+import { HEAD as emptyHead, OPTIONS as emptyOptions } from './preflight';
 import { normalizeNiche, sanitizeDeep } from './sanitize';
 
 /**
@@ -11,10 +13,10 @@ import { normalizeNiche, sanitizeDeep } from './sanitize';
  *   failure → { success: false, error: string, details?: unknown, requestId }
  *
  * `withApi()` wraps a route handler and guarantees that contract for EVERY route:
- *   • JSON bodies are size-checked, parsed, sanitised and re-injected (handlers keep calling `request.json()`)
- *   • uncaught exceptions become clean 4xx/5xx envelopes (no stack traces / internals in production)
- *   • legacy responses (`{ success, reply }`, `{ success, message }`, …) are normalised to the contract
- *     while their original top-level fields are preserved for already-deployed clients
+ *   • JSON bodies are size-checked, parsed, sanitised, alias-normalised and re-injected
+ *   • OPTIONS / HEAD short-circuit so missing method exports can never 405
+ *   • uncaught exceptions become clean 4xx/5xx envelopes (no stack traces in production)
+ *   • legacy responses (`{ success, reply }`, `{ success, message }`, …) are normalised
  *   • non-JSON responses (Twilio TwiML/XML) pass through untouched
  */
 
@@ -70,7 +72,15 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/** Read, validate and sanitise a JSON request body; returns a replacement Request. */
+function lastResortEnvelope(requestId: string, error: unknown): Response {
+  const message = error instanceof Error ? error.message : 'An unexpected server error occurred. Please try again later.';
+  return new Response(JSON.stringify({ success: false, error: publicErrorMessage(message, 500), requestId }), {
+    status: 500,
+    headers: { 'content-type': 'application/json; charset=utf-8' },
+  });
+}
+
+/** Read, validate, sanitise and alias-normalise a JSON request body; returns a replacement Request. */
 async function prepareRequest(request: Request, options: WithApiOptions): Promise<Request> {
   const method = request.method.toUpperCase();
   const contentType = request.headers.get('content-type') ?? '';
@@ -93,16 +103,15 @@ async function prepareRequest(request: Request, options: WithApiOptions): Promis
 
   const sanitized = options.sanitize === false ? parsed : sanitizeDeep(parsed);
   if (!isPlainObject(sanitized)) {
-    // Every endpoint expects a JSON object; arrays/scalars/null would crash destructuring downstream.
     throw new ApiError('JSON request body must be an object.', 400);
   }
 
-  const clean: Record<string, unknown> = { ...sanitized };
+  const clean = normalizePayload({ ...sanitized });
   for (const key of ['niche', 'Niche']) {
     if (typeof clean[key] !== 'string') continue;
     const slug = normalizeNiche(clean[key], '');
     if (slug) clean[key] = slug;
-    else delete clean[key]; // unusable niche → let the route apply its own default
+    else delete clean[key];
   }
 
   const headers = new Headers(request.headers);
@@ -164,19 +173,30 @@ async function normalizeResponse(response: Response, requestId: string): Promise
 export function withApi(handler: RouteHandler, options: WithApiOptions = {}) {
   return async function wrapped(request: Request, context?: any): Promise<Response> {
     const requestId = request.headers.get('x-request-id') || crypto.randomUUID();
+    const method = request.method.toUpperCase();
+
+    if (method === 'OPTIONS') return emptyOptions();
+    if (method === 'HEAD') return emptyHead();
+
     let prepared = request;
     try {
       prepared = await prepareRequest(request, options);
       const response = await handler(prepared, context);
       return await normalizeResponse(response, requestId);
     } catch (error) {
-      // A TypeError while handling a request that carried a JSON body almost always means a field had
-      // an unexpected type (e.g. `fullName: 123` hitting `.trim()`). That is a client error, not a 500.
       if (error instanceof TypeError && prepared !== request) {
         console.warn(`[API 400] ${requestId}: payload type mismatch – ${error.message}`);
-        return handleApiError(new ApiError('Invalid field types in request payload.', 400), requestId);
+        try {
+          return handleApiError(new ApiError('Invalid field types in request payload.', 400), requestId);
+        } catch (nested) {
+          return lastResortEnvelope(requestId, nested);
+        }
       }
-      return handleApiError(error, requestId);
+      try {
+        return handleApiError(error, requestId);
+      } catch (nested) {
+        return lastResortEnvelope(requestId, nested);
+      }
     }
   };
 }
@@ -189,7 +209,10 @@ export async function parseJson<T>(request: Request, schema: ZodType<T>): Promis
   } catch {
     throw new ApiError('Invalid JSON payload provided.', 400);
   }
-  return schema.parse(body); // ZodError → 400 via handleApiError
+  if (!isPlainObject(body)) {
+    throw new ApiError('JSON request body must be an object.', 400);
+  }
+  return schema.parse(normalizePayload(body));
 }
 
 export function getRequestId(request: Request): string {

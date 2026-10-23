@@ -6,7 +6,7 @@ import { maskPhone } from '@/src/lib/sanitize';
 import { ApiError } from '@/src/middlewares/errorHandler';
 import { logger } from '@/src/middlewares/logger';
 import { nicheField } from '@/src/validators/commonValidator';
-import { twilioCircuitBreaker } from '@/app/utils/circuit-breaker';
+import { protect } from '@/src/lib/resilience';
 
 const text = (max: number) => z.string().trim().max(max).optional();
 
@@ -87,9 +87,13 @@ async function POSTHandler(request: Request) {
 
     try {
         const client = twilio(accountSid, authToken);
-        await twilioCircuitBreaker.fire(() =>
-            client.messages.create({ body: buildMessage(body, niche, brand).slice(0, 700), from: twilioPhone, to: staffPhone })
-        );
+        await protect({
+            service: 'twilio',
+            timeoutMs: 8_000,
+            label: 'Twilio staff-alert SMS',
+            action: () =>
+                client.messages.create({ body: buildMessage(body, niche, brand).slice(0, 700), from: twilioPhone, to: staffPhone }),
+        });
     } catch (error) {
         logger.error('staffalert.dispatch_failed', error, { trace_id: traceId, niche });
         throw new ApiError('Failed to dispatch the staff alert. Please try again.', 502);
@@ -108,3 +112,5 @@ async function POSTHandler(request: Request) {
 }
 
 export const POST = withApi(POSTHandler);
+
+export { OPTIONS, HEAD } from '@/src/lib/preflight';
