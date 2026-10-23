@@ -1,10 +1,12 @@
+import { z } from 'zod';
+
 /**
  * Universal Multi-Niche Business Profile Engine
  *
  * Supports Luxury Dental, Cosmetic Surgery / Medical Aesthetics (Aura Beverly Hills),
  * Luxury Real Estate, Architectural Roofing, and Bespoke Solar.
- * Includes fuzzy niche resolution and dynamic payload merging so no landing page
- * ever fails profile lookup.
+ * Includes Zod schema validation (`businessContextSchema`), fuzzy niche resolution,
+ * and dynamic payload merging so no landing page ever fails profile lookup.
  */
 
 export interface ServiceSpec {
@@ -31,6 +33,53 @@ export interface BusinessProfile {
   services: ServiceSpec[];
   notes?: string;
 }
+
+const serviceItemSchema = z.union([
+  z.string(),
+  z
+    .object({
+      name: z.string().optional(),
+      title: z.string().optional(),
+      summary: z.string().optional(),
+      description: z.string().optional(),
+      price: z.string().optional(),
+      keywords: z.array(z.string()).optional(),
+    })
+    .passthrough(),
+]);
+
+/**
+ * Permissive Zod schema for incoming `businessContext` / `profile` payloads from any landing page.
+ */
+export const businessContextSchema = z
+  .object({
+    niche: z.string().optional(),
+    brandName: z.string().optional(),
+    businessName: z.string().optional(),
+    name: z.string().optional(),
+    industry: z.string().optional(),
+    expertName: z.string().optional(),
+    doctorName: z.string().optional(),
+    leadExpert: z.string().optional(),
+    expertTitle: z.string().optional(),
+    tagline: z.string().optional(),
+    positioning: z.string().optional(),
+    location: z.string().optional(),
+    address: z.string().optional(),
+    hours: z.string().optional(),
+    workingHours: z.string().optional(),
+    phone: z.string().optional(),
+    tone: z.string().optional(),
+    pricingGuidelines: z.string().optional(),
+    pricingPolicy: z.string().optional(),
+    bookingOptions: z.string().optional(),
+    highlights: z.array(z.string()).optional(),
+    services: z.array(serviceItemSchema).optional(),
+    notes: z.string().optional(),
+  })
+  .passthrough();
+
+export type BusinessContextInput = z.infer<typeof businessContextSchema>;
 
 /**
  * Safely truncates and normalizes plain text inputs.
@@ -73,32 +122,36 @@ export const DEFAULT_PROFILES: Record<string, BusinessProfile> = {
     services: [
       {
         name: 'Bespoke Porcelain Veneers',
-        summary: 'Ultra-thin, hand-feathered porcelain restorations engineered for natural translucency without aggressive tooth reduction.',
+        summary:
+          'Ultra-thin, hand-feathered porcelain restorations engineered for natural translucency without aggressive tooth reduction.',
         keywords: ['veneer', 'veneers', 'porcelain', 'smile makeover', 'hollywood smile', 'cosmetic'],
       },
       {
         name: '3D Guided Dental Implants',
-        summary: 'Biocompatible titanium and zirconia implants placed with sub-millimeter 3D CBCT digital guidance for permanent structural harmony.',
+        summary:
+          'Biocompatible titanium and zirconia implants placed with sub-millimeter 3D CBCT digital guidance for permanent structural harmony.',
         keywords: ['implant', 'implants', 'missing tooth', 'crown', 'bridge', 'full arch', 'all-on-4'],
       },
       {
         name: 'Invisalign Diamond Orthodontics',
-        summary: 'Accelerated, discreet clear aligner therapy digitally mapped by a Diamond-tier provider.',
+        summary:
+          'Accelerated, discreet clear aligner therapy digitally mapped by a Diamond-tier provider.',
         keywords: ['invisalign', 'aligners', 'straighten', 'braces', 'orthodontics', 'bite'],
       },
       {
         name: 'Laser Enamel Rejuvenation & Whitening',
-        summary: 'Zero-sensitivity clinical whitening protocol that lifts multiple shades in a single private suite visit.',
+        summary:
+          'Zero-sensitivity clinical whitening protocol that lifts multiple shades in a single private suite visit.',
         keywords: ['whitening', 'bleaching', 'brightening', 'stain', 'clean', 'cleaning', 'laser'],
       },
       {
         name: 'Priority Emergency & Sedation Care',
-        summary: 'Same-day discreet trauma stabilization, painless surgical extraction, and twilight sedation dentistry.',
+        summary:
+          'Same-day discreet trauma stabilization, painless surgical extraction, and twilight sedation dentistry.',
         keywords: ['emergency', 'pain', 'extraction', 'root canal', 'sedation', 'broken', 'urgent'],
       },
     ],
-    notes:
-      'Every patient receives a digital 3D smile simulation before any clinical work begins.',
+    notes: 'Every patient receives a digital 3D smile simulation before any clinical work begins.',
   },
 
   cosmetics: {
@@ -107,7 +160,8 @@ export const DEFAULT_PROFILES: Record<string, BusinessProfile> = {
     industry: 'Ultra-Luxury Facial Plastic Surgery & Medical Aesthetics',
     expertName: 'Dr. Sarah Alvi',
     expertTitle: 'MD, FACS',
-    tagline: 'Master-level surgical artistry, bespoke anatomical mapping, and undetectable facial rejuvenation.',
+    tagline:
+      'Master-level surgical artistry, bespoke anatomical mapping, and undetectable facial rejuvenation.',
     location: '436 N Bedford Dr, Penthouse Suite, Beverly Hills, CA 90210',
     hours: 'Monday to Friday 9:00 AM to 6:00 PM, Saturday by private VIP arrangement',
     phone: '(310) 555-0840',
@@ -125,28 +179,76 @@ export const DEFAULT_PROFILES: Record<string, BusinessProfile> = {
     services: [
       {
         name: 'Deep Plane Facial Rejuvenation (Facelift)',
-        summary: 'Advanced structural deep-plane repositioning that restores youthful ligament tension and jawline contour with zero surface tension or windblown appearance.',
-        keywords: ['facelift', 'face lift', 'deep plane', 'neck lift', 'sagging', 'jawline', 'jowls', 'rejuvenation', 'aging'],
+        summary:
+          'Advanced structural deep-plane repositioning that restores youthful ligament tension and jawline contour with zero surface tension or windblown appearance.',
+        keywords: [
+          'facelift',
+          'face lift',
+          'deep plane',
+          'neck lift',
+          'sagging',
+          'jawline',
+          'jowls',
+          'rejuvenation',
+          'aging',
+          'different',
+          'procedures',
+        ],
       },
       {
         name: 'Preservation Ultrasonic Rhinoplasty',
-        summary: 'Piezo-ultrasonic structural nasal refinement that preserves dorsal integrity, refines breathing, and minimizes bruising and downtime.',
+        summary:
+          'Piezo-ultrasonic structural nasal refinement that preserves dorsal integrity, refines breathing, and minimizes bruising and downtime.',
         keywords: ['rhinoplasty', 'nose job', 'nose', 'nasal', 'septoplasty', 'revision', 'breathing'],
       },
       {
         name: 'Micro-Droplet Blepharoplasty & Brow Contouring',
-        summary: 'Precision upper and lower eyelid revitalization paired with micro-fat grafting to erase hollowness and restore rested periorbital luminosity.',
-        keywords: ['blepharoplasty', 'eyelid', 'eye', 'eyes', 'under eye', 'bags', 'brow', 'brow lift', 'hollow'],
+        summary:
+          'Precision upper and lower eyelid revitalization paired with micro-fat grafting to erase hollowness and restore rested periorbital luminosity.',
+        keywords: [
+          'blepharoplasty',
+          'eyelid',
+          'eye',
+          'eyes',
+          'under eye',
+          'bags',
+          'brow',
+          'brow lift',
+          'hollow',
+        ],
       },
       {
         name: 'Non-Surgical Structural Liquid Lift & Biostimulators',
-        summary: 'Precision dermal fillers, sculptural biostimulators, and medical-grade laser resurfacing tailored to restore youthful volume without surgery.',
-        keywords: ['filler', 'fillers', 'botox', 'non-surgical', 'nonsurgical', 'injectables', 'lips', 'skin', 'laser', 'volume'],
+        summary:
+          'Precision dermal fillers, sculptural biostimulators, and medical-grade laser resurfacing tailored to restore youthful volume without surgery.',
+        keywords: [
+          'filler',
+          'fillers',
+          'botox',
+          'non-surgical',
+          'nonsurgical',
+          'injectables',
+          'lips',
+          'skin',
+          'laser',
+          'volume',
+        ],
       },
       {
         name: 'Accelerated VIP Recovery & Hyperbaric Protocol',
-        summary: 'Dedicated post-operative concierge care featuring lymphatic therapy, LED cellular regeneration, and private nursing so most clients return to social engagements within two to three weeks.',
-        keywords: ['recovery', 'downtime', 'healing', 'aftercare', 'bruising', 'swelling', 'pain', 'process', 'timeline'],
+        summary:
+          'Dedicated post-operative concierge care featuring lymphatic therapy, LED cellular regeneration, and private nursing so most clients return to social engagements within two to three weeks.',
+        keywords: [
+          'recovery',
+          'downtime',
+          'healing',
+          'aftercare',
+          'bruising',
+          'swelling',
+          'pain',
+          'process',
+          'timeline',
+        ],
       },
     ],
     notes:
@@ -176,17 +278,20 @@ export const DEFAULT_PROFILES: Record<string, BusinessProfile> = {
     services: [
       {
         name: 'Off-Market Pocket Listing Access',
-        summary: 'Curated acquisition of unadvertised trophy estates and architectural compounds before public market exposure.',
+        summary:
+          'Curated acquisition of unadvertised trophy estates and architectural compounds before public market exposure.',
         keywords: ['buy', 'buying', 'off-market', 'pocket listing', 'estate', 'home', 'mansion', 'property'],
       },
       {
         name: 'Confidential Estate Valuation & Disposition',
-        summary: 'Data-driven property valuation and discreet global marketing to qualified ultra-high-net-worth buyers.',
+        summary:
+          'Data-driven property valuation and discreet global marketing to qualified ultra-high-net-worth buyers.',
         keywords: ['sell', 'selling', 'valuation', 'worth', 'price', 'appraisal', 'market value', 'list'],
       },
       {
         name: 'Investment ROI & Portfolio Structuring',
-        summary: 'Comprehensive cap-rate modeling, mortgage structuring, and luxury development feasibility analysis.',
+        summary:
+          'Comprehensive cap-rate modeling, mortgage structuring, and luxury development feasibility analysis.',
         keywords: ['investment', 'roi', 'mortgage', 'calculator', 'yield', 'tax', 'portfolio'],
       },
     ],
@@ -198,7 +303,8 @@ export const DEFAULT_PROFILES: Record<string, BusinessProfile> = {
     industry: 'Luxury Estate Roofing & Storm Restoration Engineering',
     expertName: 'Harrison Cole',
     expertTitle: 'Principal Structural Director',
-    tagline: 'Master-grade slate, copper, and storm-resilient roofing systems engineered for generational durability.',
+    tagline:
+      'Master-grade slate, copper, and storm-resilient roofing systems engineered for generational durability.',
     location: '9100 Wilshire Blvd, Suite 400, Beverly Hills, CA 90212',
     hours: 'Monday to Saturday 7:00 AM to 7:00 PM, 24/7 Emergency Storm Response',
     phone: '(310) 555-0344',
@@ -215,17 +321,20 @@ export const DEFAULT_PROFILES: Record<string, BusinessProfile> = {
     services: [
       {
         name: 'Architectural Slate, Tile & Copper Systems',
-        summary: 'Custom-fabricated European slate, Spanish clay, and standing-seam metal roofs built for Class-4 impact and fire resistance.',
+        summary:
+          'Custom-fabricated European slate, Spanish clay, and standing-seam metal roofs built for Class-4 impact and fire resistance.',
         keywords: ['replace', 'replacement', 'new roof', 'slate', 'tile', 'metal', 'copper', 'architectural'],
       },
       {
         name: 'Precision Storm Damage & Insurance Advocacy',
-        summary: 'Forensic hail and wind inspection paired with meteorological storm-history documentation to maximize insurance coverage.',
+        summary:
+          'Forensic hail and wind inspection paired with meteorological storm-history documentation to maximize insurance coverage.',
         keywords: ['storm', 'hail', 'wind', 'damage', 'insurance', 'claim', 'leak', 'repair', 'emergency'],
       },
       {
         name: 'Drone Thermal & Structural Audit',
-        summary: 'Non-invasive infrared moisture scanning to detect hidden underlayment vulnerabilities before interior damage occurs.',
+        summary:
+          'Non-invasive infrared moisture scanning to detect hidden underlayment vulnerabilities before interior damage occurs.',
         keywords: ['inspection', 'drone', 'audit', 'estimate', 'cost', 'quote', 'check'],
       },
     ],
@@ -237,7 +346,8 @@ export const DEFAULT_PROFILES: Record<string, BusinessProfile> = {
     industry: 'Architectural Solar Integration & Whole-Estate Battery Storage',
     expertName: 'Elena Rostova',
     expertTitle: 'Chief Energy Architect',
-    tagline: 'Zero-visibility architectural solar arrays and autonomous Tesla microgrids for luxury estates.',
+    tagline:
+      'Zero-visibility architectural solar arrays and autonomous Tesla microgrids for luxury estates.',
     location: '9665 Wilshire Blvd, Beverly Hills, CA 90212',
     hours: 'Monday to Saturday 8:00 AM to 6:00 PM',
     phone: '(310) 555-0778',
@@ -254,17 +364,20 @@ export const DEFAULT_PROFILES: Record<string, BusinessProfile> = {
     services: [
       {
         name: 'Architectural Solar Array & Integrated Tile',
-        summary: 'Aesthetically invisible high-efficiency monocrystalline arrays custom-mapped to preserve estate curb appeal.',
+        summary:
+          'Aesthetically invisible high-efficiency monocrystalline arrays custom-mapped to preserve estate curb appeal.',
         keywords: ['solar', 'panels', 'array', 'roof', 'install', 'installation', 'aesthetic', 'tile'],
       },
       {
         name: 'Whole-Estate Battery Microgrid (Powerwall 3)',
-        summary: 'Seamless off-grid islanding that powers HVAC, pool systems, and EV chargers during utility blackouts.',
+        summary:
+          'Seamless off-grid islanding that powers HVAC, pool systems, and EV chargers during utility blackouts.',
         keywords: ['battery', 'storage', 'powerwall', 'backup', 'outage', 'blackout', 'microgrid', 'ev'],
       },
       {
         name: 'Utility ROI & Federal Tax Credit Modeling',
-        summary: 'Precision financial modeling detailing utility bill elimination, NEM 3.0 optimization, and 30% federal tax credit capture.',
+        summary:
+          'Precision financial modeling detailing utility bill elimination, NEM 3.0 optimization, and 30% federal tax credit capture.',
         keywords: ['cost', 'price', 'roi', 'savings', 'bill', 'tax', 'credit', 'financing', 'quote', 'proposal'],
       },
     ],
@@ -323,7 +436,7 @@ const NICHE_ALIASES: Record<string, keyof typeof DEFAULT_PROFILES> = {
  */
 export function resolveNicheKey(rawNiche?: string, brandHint?: string): keyof typeof DEFAULT_PROFILES {
   const combined = `${rawNiche ?? ''} ${brandHint ?? ''}`.toLowerCase().trim();
-  if (!combined) return 'cosmetics'; // Safe high-end default if nothing passed
+  if (!combined) return 'dental';
 
   const normalizedSlug = (rawNiche ?? '')
     .toLowerCase()
@@ -350,7 +463,7 @@ export function resolveNicheKey(rawNiche?: string, brandHint?: string): keyof ty
     return 'solar';
   }
 
-  return 'cosmetics';
+  return 'dental';
 }
 
 /**
@@ -358,7 +471,7 @@ export function resolveNicheKey(rawNiche?: string, brandHint?: string): keyof ty
  * niche string, or partial profile override.
  */
 export function resolveProfile(
-  input?: string | Partial<BusinessProfile> | Record<string, unknown> | null,
+  input?: string | Partial<BusinessProfile> | BusinessContextInput | Record<string, unknown> | null,
   fallbackNiche?: string
 ): BusinessProfile {
   if (!input || typeof input === 'string') {
@@ -372,7 +485,11 @@ export function resolveProfile(
     (typeof rawObj.industry === 'string' && rawObj.industry) ||
     fallbackNiche ||
     '';
-  const rawBrand = typeof rawObj.brandName === 'string' ? rawObj.brandName : '';
+  const rawBrand =
+    (typeof rawObj.brandName === 'string' && rawObj.brandName) ||
+    (typeof rawObj.businessName === 'string' && rawObj.businessName) ||
+    (typeof rawObj.name === 'string' && rawObj.name) ||
+    '';
 
   const baseKey = resolveNicheKey(rawNiche, rawBrand);
   const base = DEFAULT_PROFILES[baseKey];
@@ -388,8 +505,11 @@ export function resolveProfile(
             const name = cleanText(item.name ?? item.title, 80);
             const summary = cleanText(item.summary ?? item.description ?? name, 240);
             const price = item.price ? cleanText(item.price, 60) : undefined;
+            const keywords = Array.isArray(item.keywords)
+              ? item.keywords.map((k) => cleanText(k, 40)).filter(Boolean)
+              : undefined;
             if (!name) return null;
-            return { name, summary, price };
+            return { name, summary, price, keywords };
           }
           return null;
         })
@@ -402,16 +522,18 @@ export function resolveProfile(
 
   return {
     niche: cleanText(rawObj.niche, 40) || base.niche,
-    brandName: cleanText(rawObj.brandName, 80) || base.brandName,
+    brandName: cleanText(rawObj.brandName ?? rawObj.businessName ?? rawObj.name, 80) || base.brandName,
     industry: cleanText(rawObj.industry, 100) || base.industry,
-    expertName: cleanText(rawObj.expertName ?? rawObj.doctorName, 80) || base.expertName,
+    expertName:
+      cleanText(rawObj.expertName ?? rawObj.doctorName ?? rawObj.leadExpert, 80) || base.expertName,
     expertTitle: cleanText(rawObj.expertTitle, 40) || base.expertTitle,
-    tagline: cleanText(rawObj.tagline, 180) || base.tagline,
+    tagline: cleanText(rawObj.tagline ?? rawObj.positioning, 180) || base.tagline,
     location: cleanText(rawObj.location ?? rawObj.address, 140) || base.location,
-    hours: cleanText(rawObj.hours, 140) || base.hours,
+    hours: cleanText(rawObj.hours ?? rawObj.workingHours, 140) || base.hours,
     phone: cleanText(rawObj.phone, 40) || base.phone,
     tone: cleanText(rawObj.tone, 120) || base.tone,
-    pricingGuidelines: cleanText(rawObj.pricingGuidelines, 350) || base.pricingGuidelines,
+    pricingGuidelines:
+      cleanText(rawObj.pricingGuidelines ?? rawObj.pricingPolicy, 350) || base.pricingGuidelines,
     bookingOptions: cleanText(rawObj.bookingOptions, 250) || base.bookingOptions,
     highlights: customHighlights.length ? customHighlights : base.highlights,
     services: customServices.length ? customServices : base.services,
