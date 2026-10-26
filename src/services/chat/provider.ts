@@ -31,7 +31,8 @@ export const geminiProvider: ChatProvider = {
       message: request.message,
       temperature: request.temperature,
       maxOutputTokens: request.maxOutputTokens,
-      timeoutMs: Math.min(7_000, request.budgetMs),
+      // Give each key up to 4 seconds so multiple keys can be tried within the 8.5s total budget
+      timeoutMs: Math.min(4_000, Math.floor(request.budgetMs / 2)),
       totalBudgetMs: request.budgetMs,
       fast: true,
     }),

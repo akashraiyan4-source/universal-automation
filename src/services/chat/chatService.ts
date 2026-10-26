@@ -8,12 +8,6 @@ import type { BusinessProfile } from './profile';
 import { buildOpenerTurn, buildSystemInstruction, cleanReply, type TopicContext } from './prompt';
 import { classifyAiError, type ChatProvider, defaultProvider } from './provider';
 
-/**
- * Orchestrates one concierge reply:
- *   opener cache → AI provider (low temperature, hard time budget) → smart context-aware fallback.
- * It never throws: callers always get a usable `reply`.
- */
-
 export type ReplySource = 'ai' | 'cache' | 'fallback';
 
 export interface ChatRequest {
@@ -26,7 +20,6 @@ export interface ChatRequest {
 export interface ChatResult {
   reply: string;
   source: ReplySource;
-  /** Set when the reply came from the fallback handler. For logs/monitoring only. */
   degradedReason?: FallbackReason;
 }
 
@@ -64,7 +57,6 @@ export async function runChat(request: ChatRequest, deps: ChatDependencies = {})
     degradedReason: reason,
   });
 
-  // Opener replies for the same card/profile are identical for every visitor, so serve them instantly from cache.
   const cacheTtl = env.chatOpenerCacheSeconds();
   const cacheable = isOpener && history.length === 0 && cacheTtl > 0;
   const cacheKey = cacheable ? await openerCacheKey(request) : undefined;
@@ -88,7 +80,6 @@ export async function runChat(request: ChatRequest, deps: ChatDependencies = {})
     const reply = cleanReply(raw);
     if (!reply) return fallback('empty');
 
-    // Guard against a looping model: never send the exact same bubble twice in a row.
     const lastAssistant = [...history].reverse().find((turn) => turn.role === 'assistant')?.content;
     if (lastAssistant && lastAssistant.trim().toLowerCase() === reply.toLowerCase()) return fallback('empty');
 
@@ -96,7 +87,14 @@ export async function runChat(request: ChatRequest, deps: ChatDependencies = {})
     return { reply, source: 'ai' };
   } catch (error) {
     const reason = classifyAiError(error);
-    logger.warn('ai.chat.degraded', { reason, provider: provider.name, niche: profile.niche, opener: isOpener, message: error instanceof Error ? error.message.slice(0, 200) : undefined });
+    const errText = error instanceof Error ? error.message.slice(0, 300) : String(error);
+    // Prints the exact error right in the main log message so you never have to expand meta!
+    logger.warn(`ai.chat.degraded | reason=${reason} | err=${errText}`, {
+      reason,
+      provider: provider.name,
+      niche: profile.niche,
+      opener: isOpener,
+    });
     return fallback(reason);
   }
 }

@@ -1,12 +1,11 @@
 import { GoogleGenAI } from '@google/genai';
 import { withTimeout } from '../lib/async';
-import { CircuitOpenError, circuitBreakers } from '../lib/circuit-breaker';
 import { env } from '../lib/env';
 
 /**
  * Thin, lazy wrapper around the Gemini SDK.
  *  - No client is constructed at import time (a missing key can never crash a cold start).
- *  - Supports key rotation: every configured key is tried in turn.
+ *  - Supports key rotation: every configured key is tried in turn independently.
  *  - Hard timeout per attempt AND an optional total budget, so a hung upstream can never pin the function.
  *  - Fast mode: "thinking" is disabled on Gemini 2.5 Flash for low-latency conversational replies.
  */
@@ -66,35 +65,38 @@ export async function generateReply(options: GenerateOptions): Promise<string> {
 
   const startedAt = Date.now();
   const model = env.geminiModel();
-  const perAttemptMs = options.timeoutMs ?? 12_000;
+  const perAttemptMs = options.timeoutMs ?? 4_500;
 
   let lastError: unknown;
-  for (const key of keys) {
-    const remaining = options.totalBudgetMs ? options.totalBudgetMs - (Date.now() - startedAt) : perAttemptMs;
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    const elapsed = Date.now() - startedAt;
+    const remaining = options.totalBudgetMs ? options.totalBudgetMs - elapsed : perAttemptMs;
+    
     if (remaining < 800) break; // not enough time left for a meaningful attempt
+
     try {
-      const response = await circuitBreakers.gemini.fire(() =>
-        withTimeout(
-          clientFor(key).models.generateContent({
-            model,
-            contents: buildContents(options.history ?? [], options.message),
-            config: {
-              systemInstruction: options.systemInstruction,
-              maxOutputTokens: options.maxOutputTokens ?? 300,
-              temperature: options.temperature ?? 0.7,
-              ...(options.fast && supportsThinkingOff(model) ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
-            },
-          }),
-          Math.min(perAttemptMs, remaining),
-          'Gemini request'
-        )
+      const response = await withTimeout(
+        clientFor(key).models.generateContent({
+          model,
+          contents: buildContents(options.history ?? [], options.message),
+          config: {
+            systemInstruction: options.systemInstruction,
+            maxOutputTokens: options.maxOutputTokens ?? 300,
+            temperature: options.temperature ?? 0.7,
+            ...(options.fast && supportsThinkingOff(model) ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+          },
+        }),
+        Math.min(perAttemptMs, remaining),
+        `Gemini request (key #${i + 1})`
       );
+
       const text = response.text?.trim();
       if (text) return text;
-      lastError = new Error('Empty AI response');
+      lastError = new Error(`Empty AI response on key #${i + 1}`);
     } catch (error) {
       lastError = error;
-      if (error instanceof CircuitOpenError) break; // fail fast – do not burn remaining keys
+      // Do not break early — let the loop immediately try the next key!
     }
   }
   throw lastError instanceof Error ? lastError : new Error('All AI keys failed');
